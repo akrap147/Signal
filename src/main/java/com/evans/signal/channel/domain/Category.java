@@ -16,4 +16,14 @@ public class Category {
     private Integer displayOrder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public static Category create(Long serverId, String name, Integer displayOrder) {
+        return Category.builder()
+                .serverId(serverId)
+                .name(name)
+                .displayOrder(displayOrder)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
 }
