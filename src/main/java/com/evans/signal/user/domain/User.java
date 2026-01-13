@@ -17,4 +17,15 @@ public class User {
     private String profileImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public static User create(String email, String password, String username) {
+        // TODO: 여기서 이메일 검증, 비밀번호 정책 검사 등을 수행 (Domain Logic)
+        return User.builder()
+                .email(email)
+                .password(password)
+                .username(username)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
 }
