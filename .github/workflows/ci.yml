@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   build:
@@ -20,6 +21,7 @@ jobs:
         image: postgres:15-alpine
         env:
           POSTGRES_DB: discord_db
+          ## Todo[ ] 나중에는 User와 Password도 따라서 변경이 되어야한다. 
           POSTGRES_USER: user
           POSTGRES_PASSWORD: password
         ports:
