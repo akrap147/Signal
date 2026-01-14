@@ -18,4 +18,10 @@ public class ServerRepositoryImpl implements ServerRepository {
         ServerEntity savedEntity = serverJpaRepository.save(entity);
         return ServerMapper.toDomain(savedEntity);
     }
+
+    @Override
+    public java.util.Optional<Server> findByInviteCode(String inviteCode) {
+        return serverJpaRepository.findByInviteCode(inviteCode)
+                .map(ServerMapper::toDomain);
+    }
 }
