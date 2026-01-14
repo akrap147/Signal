@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class ChannelServiceTest {
+class ChannelServiceIntegTest {
 
     @Autowired
     private ChannelService channelService;
