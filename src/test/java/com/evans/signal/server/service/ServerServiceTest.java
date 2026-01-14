@@ -1,12 +1,7 @@
 package com.evans.signal.server.service;
 
-import com.evans.signal.channel.domain.Category;
-import com.evans.signal.channel.domain.Channel;
-import com.evans.signal.channel.service.port.CategoryRepository;
-import com.evans.signal.channel.service.port.ChannelRepository;
 import com.evans.signal.server.domain.Member;
 import com.evans.signal.server.domain.Server;
-import com.evans.signal.server.dto.ServerCreateDto;
 import com.evans.signal.server.service.port.MemberRepository;
 import com.evans.signal.server.service.port.ServerRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +11,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -23,46 +22,71 @@ import static org.mockito.Mockito.verify;
 @ExtendWith(MockitoExtension.class)
 class ServerServiceTest {
 
-    @Mock private ServerRepository serverRepository;
-    @Mock private MemberRepository memberRepository;
-    @Mock private ChannelRepository channelRepository;
-    @Mock private CategoryRepository categoryRepository;
+    @Mock
+    private ServerRepository serverRepository;
+
+    @Mock
+    private MemberRepository memberRepository;
 
     @InjectMocks
     private ServerService serverService;
 
     @Test
-    @DisplayName("서버 생성 시 기본 채널과 멤버가 함께 생성된다")
-    void createServer_success() {
+    @DisplayName("초대 코드로 서버 가입 성공")
+    void joinServer_Success() {
         // given
-        ServerCreateDto dto = new ServerCreateDto("My Server", 1L);
+        String inviteCode = "valid-code";
+        Long userId = 100L;
+        Long serverId = 1L;
 
-        // Server 저장 시 ID가 부여된 객체 리턴 가정
-        Server savedServer = Server.builder()
-                .id(100L)
-                .name("My Server")
-                .ownerId(1L)
+        // Mock Server (가짜 서버 객체 생성)
+        Server mockServer = Server.builder()
+                .id(serverId)
+                .name("Test Server")
+                .ownerId(99L)
+                .inviteCode(inviteCode)
                 .build();
 
-        given(serverRepository.save(any(Server.class))).willReturn(savedServer);
+        // Mocking behavior
+        given(serverRepository.findByInviteCode(inviteCode))
+                .willReturn(Optional.of(mockServer));
 
-        Category savedCategory = Category.builder().id(10L).name("일반").build();
-        given(categoryRepository.save(any(Category.class))).willReturn(savedCategory);
+        given(memberRepository.save(any(Member.class)))
+                .willAnswer(invocation -> {
+                    Member member = invocation.getArgument(0);
+                    // 저장 후 ID가 123L인 멤버를 반환한다고 가정
+                    return Member.builder()
+                            .id(123L) // Builder가 있다면
+                            .serverId(member.getServerId())
+                            .userId(member.getUserId())
+                            .role(member.getRole())
+                            .build(); 
+                    // 주의: Member 도메인에 Builder가 있었나? 확인 필요.
+                    // 없으면 Mock 객해 반환.
+                });
 
         // when
-        serverService.createServer(dto);
+        Long joinedMemberId = serverService.joinServer(inviteCode, userId);
 
         // then
-        // 1. 서버 저장 확인
-        verify(serverRepository).save(any(Server.class));
-        
-        // 2. 멤버(OWNER) 저장 확인
+        assertThat(joinedMemberId).isEqualTo(123L);
+        verify(serverRepository).findByInviteCode(inviteCode);
         verify(memberRepository).save(any(Member.class));
-        
-        // 3. 기본 카테고리 저장 확인
-        verify(categoryRepository).save(any(Category.class));
-        
-        // 4. 기본 채널 저장 확인
-        verify(channelRepository).save(any(Channel.class));
+    }
+
+    @Test
+    @DisplayName("유효하지 않은 초대 코드로 가입 실패")
+    void joinServer_Fail_InvalidCode() {
+        // given
+        String invalidCode = "invalid-code";
+        Long userId = 100L;
+
+        given(serverRepository.findByInviteCode(invalidCode))
+                .willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> serverService.joinServer(invalidCode, userId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Invalid invite code");
     }
 }

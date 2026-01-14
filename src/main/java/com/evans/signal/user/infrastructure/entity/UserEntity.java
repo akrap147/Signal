@@ -1,4 +1,4 @@
-package com.evans.signal.user.infrastructure;
+package com.evans.signal.user.infrastructure.entity;
 
 import com.evans.signal.common.BaseTimeEntity;
 import jakarta.persistence.*;

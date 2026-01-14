@@ -1,6 +1,7 @@
 package com.evans.signal.server.infrastructure;
 
 import com.evans.signal.server.domain.Server;
+import com.evans.signal.server.infrastructure.entity.ServerEntity;
 import com.evans.signal.server.service.port.ServerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -16,5 +17,11 @@ public class ServerRepositoryImpl implements ServerRepository {
         ServerEntity entity = ServerMapper.toEntity(server);
         ServerEntity savedEntity = serverJpaRepository.save(entity);
         return ServerMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public java.util.Optional<Server> findByInviteCode(String inviteCode) {
+        return serverJpaRepository.findByInviteCode(inviteCode)
+                .map(ServerMapper::toDomain);
     }
 }

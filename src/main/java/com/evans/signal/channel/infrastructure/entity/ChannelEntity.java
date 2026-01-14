@@ -1,8 +1,11 @@
-package com.evans.signal.channel.infrastructure;
+package com.evans.signal.channel.infrastructure.entity;
 
 import com.evans.signal.common.BaseTimeEntity;
-import com.evans.signal.server.infrastructure.ServerEntity;
 import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import lombok.*;
 
 @Entity
@@ -17,13 +20,11 @@ public class ChannelEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private CategoryEntity category;
+    @Column(name = "category_id", nullable = false)
+    private Long categoryId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "server_id", nullable = false)
-    private ServerEntity server;
+    @Column(name = "server_id", nullable = false)
+    private Long serverId;
 
     @Column(nullable = false, length = 100)
     private String name;

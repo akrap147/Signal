@@ -43,4 +43,13 @@ public class ServerService {
 
         return savedServer.getId();
     }
+
+    @Transactional
+    public Long joinServer(String inviteCode, Long userId) {
+        Server server = serverRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid invite code"));
+
+        Member member = Member.create(server.getId(), userId, "MEMBER");
+        return memberRepository.save(member).getId();
+    }
 }
