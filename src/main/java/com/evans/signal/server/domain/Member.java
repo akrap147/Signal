@@ -15,4 +15,13 @@ public class Member {
     private Long userId;   // ID 참조
     private String role;
     private LocalDateTime joinedAt;
+
+    public static Member create(Long serverId, Long userId, String role) {
+        return Member.builder()
+                .serverId(serverId)
+                .userId(userId)
+                .role(role)
+                .joinedAt(LocalDateTime.now())
+                .build();
+    }
 }

@@ -18,4 +18,16 @@ public class Channel {
     private Integer displayOrder;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    public static Channel create(Long serverId, Long categoryId, String name, String type, Integer displayOrder) {
+        return Channel.builder()
+                .serverId(serverId)
+                .categoryId(categoryId)
+                .name(name)
+                .type(type)
+                .displayOrder(displayOrder)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
 }
