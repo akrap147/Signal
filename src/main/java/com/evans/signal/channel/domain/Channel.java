@@ -19,6 +19,16 @@ public class Channel {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    public void update(String name) {
+        this.name = name;
+        this.updatedAt = LocalDateTime.now(); // Domain logic: update timestamp
+    }
+
+    public void updateDisplayOrder(Integer newOrder) {
+        this.displayOrder = newOrder;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public static Channel create(Long serverId, Long categoryId, String name, String type, Integer displayOrder) {
         return Channel.builder()
                 .serverId(serverId)
@@ -26,8 +36,6 @@ public class Channel {
                 .name(name)
                 .type(type)
                 .displayOrder(displayOrder)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
     }
 }

@@ -17,13 +17,20 @@ public class Category {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    public void updateName(String name) {
+        this.name = name;
+    }
+
+    public void updateDisplayOrder(Integer newOrder) {
+        this.displayOrder = newOrder;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public static Category create(Long serverId, String name, Integer displayOrder) {
         return Category.builder()
                 .serverId(serverId)
                 .name(name)
                 .displayOrder(displayOrder)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
                 .build();
     }
 }
