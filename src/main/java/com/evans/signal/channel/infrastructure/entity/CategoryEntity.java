@@ -1,7 +1,7 @@
-package com.evans.signal.channel.infrastructure;
+package com.evans.signal.channel.infrastructure.entity;
 
 import com.evans.signal.common.BaseTimeEntity;
-import com.evans.signal.server.infrastructure.ServerEntity;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -17,9 +17,8 @@ public class CategoryEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "server_id", nullable = false)
-    private ServerEntity server;
+    @Column(name = "server_id", nullable = false)
+    private Long serverId;
 
     @Column(nullable = false, length = 100)
     private String name;

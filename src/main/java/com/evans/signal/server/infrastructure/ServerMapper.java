@@ -2,6 +2,8 @@ package com.evans.signal.server.infrastructure;
 
 import com.evans.signal.server.domain.Member;
 import com.evans.signal.server.domain.Server;
+import com.evans.signal.server.infrastructure.entity.MemberEntity;
+import com.evans.signal.server.infrastructure.entity.ServerEntity;
 
 public class ServerMapper {
 

@@ -1,6 +1,8 @@
 package com.evans.signal.server.infrastructure;
 
 import com.evans.signal.server.domain.Member;
+import com.evans.signal.server.infrastructure.entity.MemberEntity;
+import com.evans.signal.server.infrastructure.entity.ServerEntity;
 import com.evans.signal.server.service.port.MemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;

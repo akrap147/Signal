@@ -1,6 +1,7 @@
 package com.evans.signal.user.infrastructure;
 
 import com.evans.signal.user.domain.User;
+import com.evans.signal.user.infrastructure.entity.UserEntity;
 import com.evans.signal.user.service.port.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;

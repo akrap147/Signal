@@ -1,26 +1,42 @@
 package com.evans.signal.channel.infrastructure;
 
 import com.evans.signal.channel.domain.Category;
+import com.evans.signal.channel.infrastructure.entity.CategoryEntity;
 import com.evans.signal.channel.service.port.CategoryRepository;
-import com.evans.signal.server.infrastructure.ServerEntity;
-import com.evans.signal.server.infrastructure.ServerJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
 
 @Repository
 @RequiredArgsConstructor
 public class CategoryRepositoryImpl implements CategoryRepository {
 
     private final CategoryJpaRepository categoryJpaRepository;
-    private final ServerJpaRepository serverJpaRepository;
 
     @Override
     public Category save(Category category) {
-        ServerEntity serverEntity = serverJpaRepository.findById(category.getServerId())
-                .orElseThrow(() -> new IllegalArgumentException("Server not found with ID: " + category.getServerId()));
-
-        CategoryEntity entity = ChannelMapper.toEntity(category, serverEntity);
+        CategoryEntity entity = CategoryMapper.toEntity(category);
         CategoryEntity savedEntity = categoryJpaRepository.save(entity);
-        return ChannelMapper.toDomain(savedEntity);
+        return CategoryMapper.toDomain(savedEntity);
+    }
+
+    @Override
+    public List<Category> findAllByServerId(Long serverId) {
+        return categoryJpaRepository.findAllByServerId(serverId).stream()
+                .map(CategoryMapper::toDomain)
+                .toList();
+    }
+
+    @Override
+    public Optional<Category> findById(Long id) {
+        return categoryJpaRepository.findById(id)
+                .map(CategoryMapper::toDomain);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        categoryJpaRepository.deleteById(id);
     }
 }
