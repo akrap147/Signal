@@ -24,4 +24,11 @@ public class ServerRepositoryImpl implements ServerRepository {
         return serverJpaRepository.findByInviteCode(inviteCode)
                 .map(ServerMapper::toDomain);
     }
+
+    @Override
+    public java.util.List<Server> findAllById(java.util.List<Long> ids) {
+        return serverJpaRepository.findAllById(ids).stream()
+                .map(ServerMapper::toDomain)
+                .toList();
+    }
 }

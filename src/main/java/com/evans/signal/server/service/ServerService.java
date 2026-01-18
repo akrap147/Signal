@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class ServerService {
@@ -51,5 +53,15 @@ public class ServerService {
 
         Member member = Member.create(server.getId(), userId, "MEMBER");
         return memberRepository.save(member).getId();
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<Server> findAllMyServers(Long userId) {
+        List<Member> members = memberRepository.findAllByUserId(userId);
+        List<Long> serverIds = members.stream()
+                .map(Member::getServerId)
+                .toList();
+        
+        return serverRepository.findAllById(serverIds);
     }
 }
