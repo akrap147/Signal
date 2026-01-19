@@ -14,4 +14,6 @@ public interface ChannelRepository {
 
 
     List<Channel> findAllByCategoryId(Long categoryId);
+
+    List<Channel> findAllByServerId(Long serverId);
 }

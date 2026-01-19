@@ -41,4 +41,10 @@ public class ChannelRepositoryImpl implements ChannelRepository {
                 .toList();
     }
 
+    @Override
+    public List<Channel> findAllByServerId(Long serverId) {
+        return channelJpaRepository.findAllByServerId(serverId).stream()
+                .map(ChannelMapper::toDomain)
+                .toList();
+    }
 }

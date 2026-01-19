@@ -13,7 +13,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.evans.signal.server.dto.response.ServerDetailResponse;
+import com.evans.signal.server.dto.response.ServerDetailResponse.CategoryDto;
+import com.evans.signal.server.dto.response.ServerDetailResponse.ChannelDto;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -63,5 +70,56 @@ public class ServerService {
                 .toList();
         
         return serverRepository.findAllById(serverIds);
+    }
+
+    @Transactional(readOnly = true)
+    public ServerDetailResponse getServerDetails(Long serverId) {
+        // 1. 서버 조회 (쿼리 1)
+        Server server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new IllegalArgumentException("Server not found"));
+
+        // 2. 카테고리 전체 조회 (쿼리 2)
+        List<Category> categories = categoryRepository.findAllByServerId(serverId);
+
+        // 3. 채널 전체 조회 (쿼리 3)
+        List<Channel> allChannels = channelRepository.findAllByServerId(serverId);
+
+        // 4. 채널을 카테고리별로 그룹핑 (메모리 연산)
+        Map<Long, List<Channel>> channelsByCategory = allChannels.stream()
+                .collect(Collectors.groupingBy(Channel::getCategoryId));
+
+        // 5. DTO 조립
+        List<CategoryDto> categoryDtos = categories.stream()
+                .sorted(Comparator.comparingInt(Category::getDisplayOrder)) // 카테고리 순서 정렬
+                .map(category -> {
+                    List<Channel> channels = channelsByCategory.getOrDefault(category.getId(), Collections.emptyList());
+
+                    List<ChannelDto> channelDtos = channels.stream()
+                            .sorted(Comparator.comparingInt(Channel::getDisplayOrder)) // 채널 순서 정렬
+                            .map(channel -> ChannelDto.builder()
+                                    .id(channel.getId())
+                                    .name(channel.getName())
+                                    .type(channel.getType())
+                                    .displayOrder(channel.getDisplayOrder())
+                                    .build())
+                            .toList();
+
+                    return CategoryDto.builder()
+                            .id(category.getId())
+                            .name(category.getName())
+                            .displayOrder(category.getDisplayOrder())
+                            .channels(channelDtos)
+                            .build();
+                })
+                .toList();
+
+        return ServerDetailResponse.builder()
+                .id(server.getId())
+                .name(server.getName())
+                .ownerId(server.getOwnerId())
+                .inviteCode(server.getInviteCode())
+                .iconImage(server.getIconImage())
+                .categories(categoryDtos)
+                .build();
     }
 }

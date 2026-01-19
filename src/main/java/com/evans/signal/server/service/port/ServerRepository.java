@@ -11,4 +11,6 @@ public interface ServerRepository {
     Optional<Server> findByInviteCode(String inviteCode);
 
     List<Server> findAllById(List<Long> ids);
+
+    Optional<Server> findById(Long id);
 }

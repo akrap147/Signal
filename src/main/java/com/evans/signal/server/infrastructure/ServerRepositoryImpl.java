@@ -31,4 +31,10 @@ public class ServerRepositoryImpl implements ServerRepository {
                 .map(ServerMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public java.util.Optional<Server> findById(Long id) {
+        return serverJpaRepository.findById(id)
+                .map(ServerMapper::toDomain);
+    }
 }
