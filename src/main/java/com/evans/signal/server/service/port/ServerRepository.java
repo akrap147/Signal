@@ -13,4 +13,6 @@ public interface ServerRepository {
     List<Server> findAllById(List<Long> ids);
 
     Optional<Server> findById(Long id);
+
+    void deleteById(Long id);
 }

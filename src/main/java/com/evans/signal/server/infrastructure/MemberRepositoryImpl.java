@@ -39,4 +39,9 @@ public class MemberRepositoryImpl implements MemberRepository {
                 .map(ServerMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public void deleteByServerIdAndUserId(Long serverId, Long userId) {
+        memberJpaRepository.deleteByServerIdAndUserId(serverId, userId);
+    }
 }

@@ -8,4 +8,6 @@ public interface MemberJpaRepository extends JpaRepository<MemberEntity, Long> {
     List<MemberEntity> findAllByUserId(Long userId);
 
     List<MemberEntity> findAllByServerId(Long serverId);
+
+    void deleteByServerIdAndUserId(Long serverId, Long userId);
 }

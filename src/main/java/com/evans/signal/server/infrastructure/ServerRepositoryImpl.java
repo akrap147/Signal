@@ -37,4 +37,9 @@ public class ServerRepositoryImpl implements ServerRepository {
         return serverJpaRepository.findById(id)
                 .map(ServerMapper::toDomain);
     }
+
+    @Override
+    public void deleteById(Long id) {
+        serverJpaRepository.deleteById(id);
+    }
 }

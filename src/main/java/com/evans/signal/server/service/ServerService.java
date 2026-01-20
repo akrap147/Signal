@@ -122,4 +122,44 @@ public class ServerService {
                         .build())
                 .toList();
     }
+
+    @Transactional
+    public void leaveServer(Long serverId, Long userId) {
+        Server server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new IllegalArgumentException("Server not found"));
+
+        if (server.getOwnerId().equals(userId)) {
+            throw new IllegalArgumentException("Owner cannot leave the server. Please delete the server instead.");
+        }
+
+        memberRepository.deleteByServerIdAndUserId(serverId, userId);
+    }
+
+    @Transactional
+    public void deleteServer(Long serverId, Long userId) {
+        Server server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new IllegalArgumentException("Server not found"));
+
+        if (!server.getOwnerId().equals(userId)) {
+            throw new IllegalArgumentException("Only the owner can delete the server.");
+        }
+
+        serverRepository.deleteById(serverId);
+    }
+
+    @Transactional
+    public void kickMember(Long serverId, Long targetUserId, Long requestUserId) {
+        Server server = serverRepository.findById(serverId)
+                .orElseThrow(() -> new IllegalArgumentException("Server not found"));
+
+        if (!server.getOwnerId().equals(requestUserId)) {
+            throw new IllegalArgumentException("Only the owner can kick members.");
+        }
+
+        if (server.getOwnerId().equals(targetUserId)) {
+            throw new IllegalArgumentException("Owner cannot kick themselves.");
+        }
+
+        memberRepository.deleteByServerIdAndUserId(serverId, targetUserId);
+    }
 }

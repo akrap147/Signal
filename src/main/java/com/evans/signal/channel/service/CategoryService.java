@@ -11,14 +11,19 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.function.Function;
 
+import com.evans.signal.channel.domain.Channel;
+import com.evans.signal.channel.service.port.ChannelRepository;
+
 @Service
 @RequiredArgsConstructor
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ChannelRepository channelRepository;
 
     @Transactional
     public void updateCategoryOrder(Long serverId, List<Long> orderedCategoryIds) {
+        // ... (기존 로직 유지)
         List<Category> categories = categoryRepository.findAllByServerId(serverId);
 
         Map<Long, Category> categoryMap = categories.stream()
@@ -33,28 +38,29 @@ public class CategoryService {
         }
     }
 
-
     @Transactional
     public Long createCategory(Long serverId, String name) {
-        // TODO: displayOrder calculation Logic
+        // ... (기존 로직 유지)
         Category category = Category.create(serverId, name, 0);
         return categoryRepository.save(category).getId();
     }
 
     @Transactional
     public void updateCategory(Long categoryId, String name) {
-
+        // ... (기존 로직 유지)
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
         category.updateName(name);
         categoryRepository.save(category);
-
     }
 
     @Transactional
     public void deleteCategory(Long categoryId) {
+        // Cascade delete channels
+        List<Channel> channels = channelRepository.findAllByCategoryId(categoryId);
+        channels.forEach(channel -> channelRepository.deleteById(channel.getId()));
+
         categoryRepository.deleteById(categoryId);
     }
-
 }

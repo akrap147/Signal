@@ -10,4 +10,6 @@ public interface MemberRepository {
     List<Member> findAllByUserId(Long userId);
 
     List<Member> findAllByServerId(Long serverId);
+
+    void deleteByServerIdAndUserId(Long serverId, Long userId);
 }
