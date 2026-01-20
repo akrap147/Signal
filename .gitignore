@@ -1,0 +1,15 @@
+# Global/IDE Ignores
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Backend specific (redundant but safe)
+backend/build/
+backend/.gradle/
+
+# Frontend specific (redundant but safe)
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
