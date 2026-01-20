@@ -14,11 +14,11 @@ public class UserService {
     private final UserRepository userRepository;
 
     @Transactional
-    public void signup(UserCreateDto dto) {
+    public Long signup(UserCreateDto dto) {
         // 1. 도메인 로직을 통해 객체 생성
         User user = User.create(dto.getEmail(), dto.getPassword(), dto.getUsername());
 
         // 2. 저장
-        userRepository.save(user);
+        return userRepository.save(user).getId();
     }
 }
