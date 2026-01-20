@@ -1,7 +1,13 @@
 package com.evans.signal.server.service;
 
+import com.evans.signal.channel.domain.Category;
+import com.evans.signal.channel.domain.Channel;
+import com.evans.signal.channel.service.port.CategoryRepository;
+import com.evans.signal.channel.service.port.ChannelRepository;
 import com.evans.signal.server.domain.Member;
 import com.evans.signal.server.domain.Server;
+import com.evans.signal.server.dto.response.MemberResponse;
+import com.evans.signal.server.dto.response.ServerDetailResponse;
 import com.evans.signal.server.service.port.MemberRepository;
 import com.evans.signal.server.service.port.ServerRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,10 +36,10 @@ class ServerServiceTest {
     private MemberRepository memberRepository;
 
     @Mock
-    private com.evans.signal.channel.service.port.CategoryRepository categoryRepository;
+    private CategoryRepository categoryRepository;
 
     @Mock
-    private com.evans.signal.channel.service.port.ChannelRepository channelRepository;
+    private ChannelRepository channelRepository;
 
     @InjectMocks
     private ServerService serverService;
@@ -40,6 +47,7 @@ class ServerServiceTest {
     @Test
     @DisplayName("초대 코드로 서버 가입 성공")
     void joinServer_Success() {
+        // ... (기존 joinServer_Success 유지)
         // given
         String inviteCode = "valid-code";
         Long userId = 100L;
@@ -97,6 +105,7 @@ class ServerServiceTest {
     @Test
     @DisplayName("서버 상세 조회 성공 - 카테고리/채널 그룹핑 확인")
     void getServerDetails_Success() {
+        // ... (기존 getServerDetails_Success 유지)
         // given
         Long serverId = 1L;
         
@@ -109,23 +118,23 @@ class ServerServiceTest {
                 .build();
         
         // 2. Mock Categories
-        com.evans.signal.channel.domain.Category cat1 = com.evans.signal.channel.domain.Category.builder()
+        Category cat1 = Category.builder()
                 .id(10L).serverId(serverId).name("General").displayOrder(0).build();
-        com.evans.signal.channel.domain.Category cat2 = com.evans.signal.channel.domain.Category.builder()
+        Category cat2 = Category.builder()
                 .id(11L).serverId(serverId).name("Game").displayOrder(1).build();
 
         // 3. Mock Channels
-        com.evans.signal.channel.domain.Channel ch1 = com.evans.signal.channel.domain.Channel.builder()
+        Channel ch1 = Channel.builder()
                 .id(100L).serverId(serverId).categoryId(10L).name("chat").type("TEXT").displayOrder(0).build();
-        com.evans.signal.channel.domain.Channel ch2 = com.evans.signal.channel.domain.Channel.builder()
+        Channel ch2 = Channel.builder()
                 .id(101L).serverId(serverId).categoryId(11L).name("voice-room").type("VOICE").displayOrder(0).build();
 
         given(serverRepository.findById(serverId)).willReturn(Optional.of(mockServer));
-        given(categoryRepository.findAllByServerId(serverId)).willReturn(java.util.List.of(cat1, cat2));
-        given(channelRepository.findAllByServerId(serverId)).willReturn(java.util.List.of(ch1, ch2));
+        given(categoryRepository.findAllByServerId(serverId)).willReturn(List.of(cat1, cat2));
+        given(channelRepository.findAllByServerId(serverId)).willReturn(List.of(ch1, ch2));
 
         // when
-        com.evans.signal.server.dto.response.ServerDetailResponse response = serverService.getServerDetails(serverId);
+        ServerDetailResponse response = serverService.getServerDetails(serverId);
 
         // then
         assertThat(response.getId()).isEqualTo(serverId);
@@ -141,5 +150,26 @@ class ServerServiceTest {
         assertThat(response.getCategories().get(1).getName()).isEqualTo("Game");
         assertThat(response.getCategories().get(1).getChannels()).hasSize(1);
         assertThat(response.getCategories().get(1).getChannels().get(0).getName()).isEqualTo("voice-room");
+    }
+
+    @Test
+    @DisplayName("서버 멤버 목록 조회 성공")
+    void getServerMembers_Success() {
+        // given
+        Long serverId = 1L;
+        Member member1 = Member.builder().id(10L).serverId(serverId).userId(100L).role("OWNER").build();
+        Member member2 = Member.builder().id(11L).serverId(serverId).userId(101L).role("MEMBER").build();
+
+        given(memberRepository.findAllByServerId(serverId)).willReturn(List.of(member1, member2));
+
+        // when
+        List<MemberResponse> responses = serverService.getServerMembers(serverId);
+
+        // then
+        assertThat(responses).hasSize(2);
+        assertThat(responses.get(0).getUserId()).isEqualTo(100L);
+        assertThat(responses.get(0).getRole()).isEqualTo("OWNER");
+        assertThat(responses.get(1).getUserId()).isEqualTo(101L);
+        assertThat(responses.get(1).getRole()).isEqualTo("MEMBER");
     }
 }

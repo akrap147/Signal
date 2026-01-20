@@ -33,4 +33,10 @@ public class Category {
                 .displayOrder(displayOrder)
                 .build();
     }
+    public java.util.List<Channel> filterAndSortChannels(java.util.List<Channel> channels) {
+        return channels.stream()
+                .filter(channel -> channel.getCategoryId().equals(this.id))
+                .sorted(java.util.Comparator.comparingInt(Channel::getDisplayOrder))
+                .toList();
+    }
 }

@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MemberJpaRepository extends JpaRepository<MemberEntity, Long> {
     List<MemberEntity> findAllByUserId(Long userId);
+
+    List<MemberEntity> findAllByServerId(Long serverId);
 }

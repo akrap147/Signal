@@ -8,4 +8,6 @@ public interface MemberRepository {
     Member save(Member member);
 
     List<Member> findAllByUserId(Long userId);
+
+    List<Member> findAllByServerId(Long serverId);
 }

@@ -32,4 +32,11 @@ public class MemberRepositoryImpl implements MemberRepository {
                 .map(ServerMapper::toDomain)
                 .toList();
     }
+
+    @Override
+    public List<Member> findAllByServerId(Long serverId) {
+        return memberJpaRepository.findAllByServerId(serverId).stream()
+                .map(ServerMapper::toDomain)
+                .toList();
+    }
 }
