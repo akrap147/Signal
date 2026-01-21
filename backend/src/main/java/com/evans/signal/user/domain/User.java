@@ -28,4 +28,9 @@ public class User {
                 .updatedAt(LocalDateTime.now())
                 .build();
     }
+
+    public boolean checkPassword(String plainPassword) {
+        // 나중에 PasswordEncoder를 도입하면 여기서 match 로직을 변경하면 됨
+        return this.password.equals(plainPassword);
+    }
 }
