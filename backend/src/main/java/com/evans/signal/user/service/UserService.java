@@ -21,4 +21,11 @@ public class UserService {
         // 2. 저장
         return userRepository.save(user).getId();
     }
+
+    public Long login(String email, String password) {
+        return userRepository.findByEmail(email)
+                .filter(u -> u.getPassword().equals(password)) // TODO: Password Encoder 적용 필요
+                .map(User::getId)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
+    }
 }
