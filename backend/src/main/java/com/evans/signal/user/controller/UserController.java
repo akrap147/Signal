@@ -23,6 +23,13 @@ public class UserController {
         return ResponseEntity.ok(userId);
     }
 
+    @PostMapping("/login")
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인합니다. 성공 시 사용자 ID를 반환합니다.")
+    public ResponseEntity<Long> login(@RequestBody com.evans.signal.user.dto.UserLoginDto dto) {
+        Long userId = userService.login(dto.email(), dto.password());
+        return ResponseEntity.ok(userId);
+    }
+
     @GetMapping("/me")
     @Operation(summary = "내 정보 조회 (Mock)", description = "현재 개발 단계용 Mock 유저 정보를 반환합니다. 추후 인증 구현 시 실제 정보로 대체됩니다.")
     public ResponseEntity<String> getMe() {

@@ -1,0 +1,131 @@
+/* LandingPage.css */
+.landing-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-darker);
+  /* 고급스러운 배경 패턴 (옵션) */
+  background-image: radial-gradient(circle at 50% 50%, rgba(30, 31, 34, 0.8) 0%, var(--bg-darker) 100%);
+}
+
+.landing-card {
+  width: 100%;
+  max-width: 420px;
+  background-color: var(--bg-secondary);
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  animation: fadeIn 0.6s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.landing-title {
+  font-size: 2rem;
+  font-weight: 800;
+  text-align: center;
+  color: var(--accent-white);
+  letter-spacing: -1px;
+}
+
+.landing-subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin-top: -16px;
+}
+
+.landing-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.input-group input {
+  padding: 14px;
+  border-radius: 8px;
+  background-color: var(--bg-darker);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 1rem;
+  transition: all 0.2s;
+}
+
+.input-group input:focus {
+  outline: none;
+  border-color: var(--primary-color, #5865F2);
+  box-shadow: 0 0 0 2px rgba(88, 101, 242, 0.3);
+}
+
+.submit-btn {
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: none;
+  background-color: var(--primary-color, #5865F2); /* Discord Blurple */
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-btn:hover {
+  background-color: #4752c4;
+  transform: translateY(-2px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.error-message {
+  color: #ff6b6b;
+  font-size: 0.9rem;
+  text-align: center;
+  background: rgba(255, 107, 107, 0.1);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.toggle-mode {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.toggle-mode span {
+  color: var(--primary-color, #5865F2);
+  cursor: pointer;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.toggle-mode span:hover {
+  text-decoration: underline;
+}

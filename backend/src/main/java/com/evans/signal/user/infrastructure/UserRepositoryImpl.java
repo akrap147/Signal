@@ -24,5 +24,9 @@ public class UserRepositoryImpl implements UserRepository {
         return UserMapper.toDomain(savedEntity);
     }
 
-    // 나중에 findByEmail 등도 여기서 구현
+    @Override
+    public java.util.Optional<User> findByEmail(String email) {
+        return userJpaRepository.findByEmail(email)
+                .map(UserMapper::toDomain);
+    }
 }
