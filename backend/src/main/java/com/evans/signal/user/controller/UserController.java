@@ -1,12 +1,15 @@
 package com.evans.signal.user.controller;
 
 import com.evans.signal.user.dto.UserCreateDto;
+import com.evans.signal.user.dto.UserLoginDto;
 import com.evans.signal.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import com.evans.signal.user.dto.LoginResponseDto;
 
 @RestController
 @RequestMapping("/api/users")
@@ -24,10 +27,10 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인합니다. 성공 시 사용자 ID를 반환합니다.")
-    public ResponseEntity<Long> login(@RequestBody com.evans.signal.user.dto.UserLoginDto dto) {
-        Long userId = userService.login(dto.email(), dto.password());
-        return ResponseEntity.ok(userId);
+    @Operation(summary = "로그인", description = "이메일과 비밀번호로 로그인합니다. 성공 시 JWT 토큰과 사용자 정보를 반환합니다.")
+    public ResponseEntity<LoginResponseDto> login(@RequestBody UserLoginDto dto) {
+        LoginResponseDto response = userService.login(dto.email(), dto.password());
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/me")
@@ -36,4 +39,6 @@ public class UserController {
         // TODO: Implement actual authentication and return UserDetailResponse
         return ResponseEntity.ok("Current User Info (Mock)");
     }
+
+
 }
