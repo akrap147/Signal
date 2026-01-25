@@ -13,11 +13,3 @@ This is a generic Discord clone project "Signal".
 Navigate to the `backend` directory and run:
 ```bash
 ./gradlew bootRun
-```
-
-### Frontend
-Navigate to the `frontend` directory and run:
-```bash
-npm install
-npm run dev
-```
