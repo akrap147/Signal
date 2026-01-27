@@ -15,9 +15,11 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.evans.signal.support.AbstractIntegrationTest;
+
 @SpringBootTest
 @Transactional
-class ChannelServiceIntegTest {
+class ChannelServiceIntegTest extends AbstractIntegrationTest {
 
     @Autowired
     private ChannelService channelService;

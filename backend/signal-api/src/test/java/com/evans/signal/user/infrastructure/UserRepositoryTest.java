@@ -12,10 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.evans.signal.support.AbstractIntegrationTest;
+
 @DataJpaTest
 @Import(UserRepositoryImpl.class) // 우리가 만든 구현체 스캔 필요
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // 실제 DB 사용 (H2 아님)
-class UserRepositoryTest {
+class UserRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
