@@ -1,0 +1,26 @@
+plugins {
+    id 'java-library' // api 키워드 사용을 위해 필요
+}
+
+dependencies {
+    // Web (기본적인 웹 관련 클래스 사용을 위해)
+    api 'org.springframework.boot:spring-boot-starter-web'
+    
+    // JPA & DB
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    // Security & JWT (공통 인증 로직)
+    api 'org.springframework.boot:spring-boot-starter-security'
+    api 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+}
+
+// common은 실행 가능한 애플리케이션이 아닌 라이브러리 역할이므로 bootJar false
+bootJar {
+    enabled = false
+}
+
+jar {
+    enabled = true
+}

@@ -1,1 +1,5 @@
 rootProject.name = 'signal'
+
+include 'signal-common'
+include 'signal-api'
+include 'signal-chat'

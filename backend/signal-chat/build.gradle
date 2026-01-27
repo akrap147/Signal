@@ -1,0 +1,13 @@
+dependencies {
+    implementation project(':signal-common')
+    
+    // WebSocket
+    // WebSocket & Messaging
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'io.projectreactor.netty:reactor-netty'
+    
+    // DB (채팅 로그 저장)
+    implementation 'org.postgresql:postgresql'
+}
