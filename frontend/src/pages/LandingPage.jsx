@@ -26,11 +26,18 @@ const LandingPage = () => {
           email: formData.email,
           password: formData.password
         });
-        userId = response.data;
-        // 로그인 시 username을 모르므로 임시 처리 혹은 별도 조회 필요
-        if (!username) username = "User"; 
+        
+        // LoginResponseDto: { accessToken, userId, username, email }
+        userId = response.data.userId; 
+        username = response.data.username || "User";
+        
+        // 토큰 저장 (추후 API 요청 헤더에 사용)
+        if (response.data.accessToken) {
+          localStorage.setItem('accessToken', response.data.accessToken);
+          client.defaults.headers.common['Authorization'] = `Bearer ${response.data.accessToken}`;
+        }
       } else {
-        // Signup
+        // Signup returns simple Long (userId)
         const response = await client.post('/users/signup', formData);
         userId = response.data; 
       }

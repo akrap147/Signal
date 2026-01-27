@@ -5,8 +5,20 @@ import ChatArea from './components/chat/ChatArea'
 import LandingPage from './pages/LandingPage'
 import useAuthStore from './stores/useAuthStore'
 
+import useChatStore from './stores/useChatStore'
+import React, { useEffect } from 'react'
+
 function App() {
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, userId } = useAuthStore()
+  const { connect, disconnect } = useChatStore()
+
+  useEffect(() => {
+    if (isAuthenticated && userId) {
+      connect(userId)
+    } else {
+      disconnect()
+    }
+  }, [isAuthenticated, userId, connect, disconnect])
 
   if (!isAuthenticated) {
     return <LandingPage />
