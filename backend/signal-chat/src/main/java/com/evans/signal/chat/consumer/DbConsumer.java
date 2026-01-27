@@ -29,6 +29,7 @@ public class DbConsumer {
                 .roomId(message.getRoomId())
                 .senderId(message.getSenderId())
                 .content(message.getContent())
+                .seqId(message.getSeqId())
                 .build());
 
         log.debug("DB saved: Room {} from User {}", message.getRoomId(), message.getSenderId());

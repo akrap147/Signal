@@ -23,13 +23,17 @@ public class ChatMessage extends BaseTimeEntity {
     @Column(nullable = false)
     private Long senderId;
 
+    @Column(nullable = false)
+    private Long seqId;
+
     @Column(columnDefinition = "TEXT")
     private String content;
 
     @Builder
-    public ChatMessage(Long roomId, Long senderId, String content) {
+    public ChatMessage(Long roomId, Long senderId, String content, Long seqId) {
         this.roomId = roomId;
         this.senderId = senderId;
         this.content = content;
+        this.seqId = seqId;
     }
 }
