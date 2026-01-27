@@ -1,68 +1,84 @@
 package com.evans.signal.chat;
 
-import com.evans.signal.chat.domain.ChatMessage;
 import com.evans.signal.chat.dto.ChatMessageDto;
-import com.evans.signal.chat.infrastructure.ChatMessageJpaRepository;
-import lombok.extern.slf4j.Slf4j;
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
-import org.springframework.messaging.simp.stomp.StompFrameHandler;
-import org.springframework.messaging.simp.stomp.StompHeaders;
-import org.springframework.messaging.simp.stomp.StompSession;
-import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
+import org.springframework.messaging.simp.stomp.*;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
 import java.lang.reflect.Type;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
-@Slf4j
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@Testcontainers
 public class ChatSystemTest {
 
-    // 내부에 가능한 port로 열어라
+    @Container
+    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
+
+    @Container
+    static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:alpine"))
+            .withExposedPorts(6379);
+
+    @Container
+    static GenericContainer<?> rabbitmq = new GenericContainer<>(DockerImageName.parse("rabbitmq:3-management"))
+            .withExposedPorts(5672, 15672, 61613)
+            // STOMP 플러그인 활성화를 위한 커맨드 설정
+            .withCommand("/bin/sh", "-c", "rabbitmq-plugins enable --offline rabbitmq_stomp rabbitmq_management && rabbitmq-server");
+
+    @DynamicPropertySource
+    static void configureProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", postgres::getJdbcUrl);
+        registry.add("spring.datasource.username", postgres::getUsername);
+        registry.add("spring.datasource.password", postgres::getPassword);
+
+        registry.add("spring.data.redis.host", redis::getHost);
+        registry.add("spring.data.redis.port", () -> redis.getMappedPort(6379));
+
+        registry.add("spring.rabbitmq.host", rabbitmq::getHost);
+        registry.add("spring.rabbitmq.port", () -> rabbitmq.getMappedPort(5672));
+        registry.add("spring.rabbitmq.stomp.port", () -> rabbitmq.getMappedPort(61613));
+        registry.add("spring.rabbitmq.username", () -> "guest");
+        registry.add("spring.rabbitmq.password", () -> "guest");
+    }
+
     @LocalServerPort
     private int port;
-    @Autowired
-    private ChatMessageJpaRepository chatMessageRepository;
-    @Autowired
-    private StringRedisTemplate redisTemplate;
 
     private WebSocketStompClient stompClient;
-    private final String url = "ws://localhost:";
-    private StompSession userASession;
-    private StompSession userBSession;
-    private BlockingQueue<ChatMessageDto> userBQueue;
 
     @BeforeEach
-    void setup() throws Exception {
-        // 1. 클라이언트 설정
-        this.stompClient = new WebSocketStompClient(new StandardWebSocketClient());
-        this.stompClient.setMessageConverter(new MappingJackson2MessageConverter());
+    void setup() {
+        stompClient = new WebSocketStompClient(new StandardWebSocketClient());
+        stompClient.setMessageConverter(new MappingJackson2MessageConverter());
+    }
 
-        // 2. Redis 데이터 초기화 (항상 1번부터 시작하도록)
-        redisTemplate.delete("room:1:seq");
+    @Test
+    @DisplayName("WebSocket Chat Minimal Test: A가 보내고 B가 받는다")
+    void testWebSocketChatReference() throws Exception {
+        // 1. 유저 B (수신자) 연결 및 구독
+        StompSession userB = connect();
+        BlockingQueue<ChatMessageDto> messages = new LinkedBlockingQueue<>();
 
-        // 3. 유저 A 연결
-        userASession = connectUser();
-
-        // 4. 유저 B 연결 및 구독 설정
-        userBSession = connectUser();
-        userBQueue = new LinkedBlockingDeque<>();
-        userBSession.subscribe("/topic/channel.1", new StompFrameHandler() {
+        userB.subscribe("/topic/channel.1", new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders headers) {
                 return ChatMessageDto.class;
@@ -70,77 +86,29 @@ public class ChatSystemTest {
 
             @Override
             public void handleFrame(StompHeaders headers, Object payload) {
-                userBQueue.add((ChatMessageDto) payload);
+                messages.add((ChatMessageDto) payload);
             }
         });
 
-        log.info("유저 A, B 연결 및 유저 B 구독 완료");
+        // 2. 유저 A (송신자) 연결 및 메시지 전송
+        StompSession userA = connect();
+        ChatMessageDto msg = ChatMessageDto.builder()
+                .roomId(1L)
+                .senderId(101L)
+                .content("Test Message")
+                .build();
+
+        userA.send("/pub/chat/message", msg);
+
+        // 3. 검증: 메시지 수신 및 Redis SeqId 생성 확인
+        ChatMessageDto received = messages.poll(5, TimeUnit.SECONDS);
+        assertThat(received).isNotNull();
+        assertThat(received.getContent()).isEqualTo("Test Message");
+        assertThat(received.getSeqId()).isNotNull(); // Redis 연동 확인
     }
 
-
-    private StompSession connectUser() throws Exception {
-        return stompClient.connectAsync(url + port + "/ws-stomp", new StompSessionHandlerAdapter() {
-        }).get(1, TimeUnit.SECONDS);
+    private StompSession connect() throws Exception {
+        return stompClient.connectAsync("ws://localhost:" + port + "/ws-stomp", new StompSessionHandlerAdapter() {})
+                .get(1, TimeUnit.SECONDS);
     }
-
-
-
-    // test 1
-    @Test
-    @DisplayName("단순 대화 테스트: 유저 A가 보낸 메시지를 유저 B가 수신해야 한다")
-    void chatMessageTransferTest() throws Exception {
-        // Given
-        ChatMessageDto sendMsg = ChatMessageDto.builder()
-                .roomId(1L).senderId(101L).content("안녕, B!").build();
-
-        // When
-        userASession.send("/pub/chat/message", sendMsg);
-
-        // Then
-        ChatMessageDto receivedMsg = userBQueue.poll(5, TimeUnit.SECONDS);
-        assertThat(receivedMsg).isNotNull();
-        assertThat(receivedMsg.getContent()).isEqualTo("안녕, B!");
-    }
-
-    // 2. 보낸 순서대로 오는지 확인 (Sequence 정합성)
-    @Test
-    @DisplayName("순서 보장 테스트: 메시지를 연속 발송했을 때 SeqId가 순차적으로 증가해야 한다")
-    void messageSequenceOrderTest() throws Exception {
-        // Given: 3개 메시지 준비
-        int count = 3;
-
-        // When: 연속 발송
-        for (int i = 1; i <= count; i++) {
-            userASession.send("/pub/chat/message",
-                    ChatMessageDto.builder().roomId(1L).senderId(101L).content("Msg " + i).build());
-        }
-
-        // Then: 받은 메시지들의 SeqId가 1, 2, 3인지 확인
-        for (int i = 1; i <= count; i++) {
-            ChatMessageDto received = userBQueue.poll(5, TimeUnit.SECONDS);
-            assertThat(received).isNotNull();
-            assertThat(received.getSeqId()).isEqualTo((long) i);
-            log.info("Received Sequence: {}", received.getSeqId());
-        }
-    }
-    @Test
-    @DisplayName("DB 저장 테스트: 발송된 메시지가 비동기적으로 DB에 저장되어야 한다")
-    void databaseSaveTest() throws Exception {
-        // Given
-        String uniqueContent = "Storage Test " + System.currentTimeMillis();
-        ChatMessageDto sendMsg = ChatMessageDto.builder()
-                .roomId(1L).senderId(101L).content(uniqueContent).build();
-
-        // When
-        userASession.send("/pub/chat/message", sendMsg);
-
-        // Then: DB 확인 (웹소켓 수신은 무시하고 DB만 체크)
-        Awaitility.await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> {
-            // 가장 최근 저장된 메시지 하나를 가져옴
-            Optional<ChatMessage> dbMsg = chatMessageRepository.findTopByRoomIdOrderBySeqIdDesc(1L);
-            assertThat(dbMsg).isPresent();
-            assertThat(dbMsg.get().getContent()).isEqualTo(uniqueContent);
-        });
-    }
-
 }

@@ -1,5 +1,6 @@
 package com.evans.signal.chat.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -12,7 +13,21 @@ import org.springframework.messaging.simp.config.ChannelRegistration;
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
 
-    // 첫 요청 websocket을 연결 하기위한 endPoint 설정
+    @Value("${chat.rabbitmq.enabled:true}")
+    private boolean useRabbitMq;
+
+    @Value("${spring.rabbitmq.host}")
+    private String relayHost;
+
+    @Value("${spring.rabbitmq.stomp.port:61613}")
+    private int relayPort;
+
+    @Value("${spring.rabbitmq.username}")
+    private String login;
+
+    @Value("${spring.rabbitmq.password}")
+    private String passcode;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
 
@@ -25,15 +40,20 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
 
-        // 기존 내장 브로커(SimpleBroker) 대신 외부 브로커(RabbitMQ) 사용
-        // RabbitMQ STOMP는 /topic (pub/sub), /queue (p2p), /exchange (routing) 등을 지원함
-        registry.enableStompBrokerRelay("/topic", "/queue", "/exchange", "/amq/queue")
-                .setRelayHost("localhost")
-                .setRelayPort(61613)
-                .setClientLogin("guest")
-                .setClientPasscode("guest")
-                .setSystemLogin("guest")
-                .setSystemPasscode("guest");
+        if (useRabbitMq) {
+            // 기존 내장 브로커(SimpleBroker) 대신 외부 브로커(RabbitMQ) 사용
+            // RabbitMQ STOMP는 /topic (pub/sub), /queue (p2p), /exchange (routing) 등을 지원함
+            registry.enableStompBrokerRelay("/topic", "/queue", "/exchange", "/amq/queue")
+                    .setRelayHost(relayHost)
+                    .setRelayPort(relayPort)
+                    .setClientLogin(login)
+                    .setClientPasscode(passcode)
+                    .setSystemLogin(login)
+                    .setSystemPasscode(passcode);
+        } else {
+            // 테스트용 내장 브로커
+            registry.enableSimpleBroker("/topic", "/queue");
+        }
 
         registry.setApplicationDestinationPrefixes("/pub");
     }
