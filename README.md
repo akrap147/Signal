@@ -52,38 +52,4 @@ MSA 전환을 염두에 둔 Spring Boot 멀티 모듈 아키텍처와 RabbitMQ�
 ### 1. Prerequisite (Infrastructure)
 Docker Compose를 사용하여 필수 인프라(PostgreSQL, Redis, RabbitMQ)를 실행합니다.
 ```bash
-cd backend
-docker-compose up -d
-```
-*RabbitMQ Management UI: http://localhost:15672 (guest/guest)*
-
-### 2. Backend Run
-**API Server** (8080)
-```bash
-./gradlew :signal-api:bootRun
-```
-
-**Chat Server** (8081)
-```bash
-./gradlew :signal-chat:bootRun
-```
-
-### 3. Frontend Run
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
----
-
-## 🧪 Performance Testing
-Python 스크립트를 통해 채팅 시스템의 부하 테스트를 수행할 수 있습니다.
-(Zombie Client들과 Attacker가 동시에 접속하여 트래픽 공격 시뮬레이션)
-
-```bash
-pip install websockets
-python3 stress_test.py
-```
-- **Scenario**: 5명의 좀비 클라이언트가 대기하고, 1명의 공격자가 10,000개의 메시지를 0.001초 간격으로 전송.
-- **Result**: RabbitMQ 비동기 큐링을 통해 0.3s 내외의 안정적인 지연 시간(Latency) 확보 및 데이터 유실 '0' 달성.
+./gradlew bootRun
