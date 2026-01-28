@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Signal Voice Chat - Production Test</title>
+    <!-- Use Import Map for modern module loading -->
+    <script type="importmap">
+    {
+        "imports": {
+            "mediasoup-client": "https://esm.sh/mediasoup-client@3.7.16"
+        }
+    }
+    </script>
+    <style>
+        body { font-family: 'Consolas', monospace; max-width: 900px; margin: 20px auto; padding: 20px; background: #f4f7f6; color: #333; }
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .status-bar { font-weight: bold; margin-bottom: 20px; padding: 15px; border-radius: 8px; background: #e3f2fd; color: #0d47a1; border-left: 6px solid #2196f3; }
+        .control-group { margin: 20px 0; padding: 20px; background: #fafafa; border-radius: 8px; border: 1px solid #eee; }
+        button { cursor: pointer; padding: 12px 24px; font-weight: bold; border-radius: 6px; border: none; transition: all 0.2s; margin-right: 10px; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #ccc !important; cursor: not-allowed; transform: none; }
+        #logs { background: #2b2b2b; color: #a6e22e; padding: 20px; border-radius: 8px; height: 300px; overflow-y: auto; font-size: 13px; line-height: 1.5; margin-top: 20px; }
+        input[type="text"] { padding: 10px; width: 180px; border: 1px solid #ddd; border-radius: 4px; margin-right: 10px; }
+        canvas { width: 100%; height: 80px; background: #000; border-radius: 4px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h2>🎤 Signal Voice WebRTC Debugger</h2>
+    <div class="status-bar" id="status">상태: 라이브러리 로딩 확인 중...</div>
+
+    <div class="control-group">
+        <strong>1단계:</strong>
+        <input type="text" id="roomId" value="room1">
+        <button id="btnJoin" style="background: #4caf50; color: white;">서버 연결 (Join)</button>
+    </div>
+
+    <div class="control-group">
+        <strong>2단계:</strong>
+        <button id="btnProduce" disabled style="background: #2196f3; color: white;">마이크 켜기 (Start Mic)</button>
+        <button id="btnMute" disabled style="background: #ff9800; color: white;">음소거 (Mute)</button>
+    </div>
+
+    <div id="logs"></div>
+
+    <div class="control-group">
+        <strong>Input Visualizer (My Mic)</strong>
+        <canvas id="audioVisualizer" height="80"></canvas>
+        <div id="volumeLevel" style="margin-top: 10px; font-weight: bold;">Volume: 0</div>
+    </div>
+
+    <div class="control-group">
+        <strong>Output Visualizer (Received Audio)</strong>
+        <canvas id="outputVisualizer" height="80"></canvas>
+        <div id="outputVolumeLevel" style="margin-top: 10px; font-weight: bold;">Volume: 0</div>
+        <audio id="remoteAudio" autoplay style="display:none;"></audio>
+    </div>
+</div>
+
+<script type="module">
+    import * as mediasoupClient from 'mediasoup-client';
+    
+    // 전역 변수 설정
+    let ws;
+    let device;
+    let producerTransport;
+    let consumerTransport;
+    let producer;
+    let consumer;
+    let myProducerId;
+    let pendingProducers = [];
+    let isCreatingRecvTransport = false;
+    const signalingUrl = "ws://localhost:8082/ws/signaling";
+
+    // 라이브러리 로드 확인
+    window.onload = () => {
+        if (mediasoupClient && mediasoupClient.Device) {
+            log("✅ Mediasoup Library (ESM) 로드 완료");
+            updateStatus("준비됨 (서버에 연결하세요)");
+        } else {
+            log("❌ 라이브러리 로드 실패!");
+            updateStatus("라이브러리 오류", "red");
+        }
+    };
+
+    const log = (msg) => {
+        const el = document.getElementById('logs');
+        const time = new Date().toLocaleTimeString();
+        console.log(`[DEBUG] ${msg}`);
+        el.innerHTML += `<span style="color: #66d9ef">[${time}]</span> ${msg}<br>`;
+        el.scrollTop = el.scrollHeight;
+    };
+
+    const updateStatus = (msg, color) => {
+        const el = document.getElementById('status');
+        el.innerText = `상태: ${msg}`;
+        if (color) el.style.color = color;
+    };
+
+    // 버튼 이벤트 바인딩
+    document.getElementById('btnJoin').addEventListener('click', joinRoom);
+    document.getElementById('btnProduce').addEventListener('click', produce);
+    document.getElementById('btnMute').addEventListener('click', toggleMute);
+
+    async function joinRoom() {
+        log("서버 연결 시도 중...");
+        ws = new WebSocket(signalingUrl);
+
+        ws.onopen = () => {
+            log("✅ WebSocket 연결 성공");
+            const rId = document.getElementById('roomId').value;
+            ws.send(JSON.stringify({ type: 'join', roomId: rId }));
+            updateStatus("서버 연결됨 - 미디어 정보 수신 대기 중");
+            document.getElementById('btnJoin').disabled = true;
+        };
+
+        ws.onmessage = async (event) => {
+            const msg = JSON.parse(event.data);
+            handleMessage(msg);
+        };
+
+        ws.onerror = (err) => {
+            log("❌ WebSocket 에러 발생. 서버가 8082 포트에서 실행 중인지 확인하세요.");
+            updateStatus("연결 에러", "red");
+        };
+
+        ws.onclose = () => {
+            log("⚠️ WebSocket 연결이 닫혔습니다.");
+            updateStatus("연결 끊김", "gray");
+            document.getElementById('btnJoin').disabled = false;
+        };
+    }
+
+    async function handleMessage(msg) {
+        // 0. 새로운 Producer 알림 (다른 사용자 입장)
+        if (msg.type === 'newProducer') {
+            log(`🔔 새로운 사용자(Producer) 감지: ${msg.producerId}`);
+            consumeProducer(msg.producerId);
+            return;
+        }
+
+        // 1. RTP Capabilities 수신 (Device 초기화)
+        if (msg.rtpCapabilities) {
+            log("RTP Capabilities 수신 완료. Device 로딩 시작...");
+            try {
+                device = new mediasoupClient.Device();
+                await device.load({ routerRtpCapabilities: msg.rtpCapabilities });
+                log(`✅ Device 로드 성공! (Handler: ${device.handlerName})`);
+                updateStatus("마이크 사용 가능");
+                document.getElementById('btnProduce').disabled = false;
+            } catch (e) {
+                log(`❌ Device 로드 실패: ${e.message}`);
+            }
+        }
+
+        // 2. Transport 정보 수신
+        if (msg.id && msg.iceParameters) {
+            if (!producerTransport && !isCreatingRecvTransport) { // 간단한 판별 로직
+                log("Send Transport 정보 수신. 생성 중...");
+                initSendTransport(msg);
+            } else if (isCreatingRecvTransport) {
+                 log("Recv Transport 정보 수신. 생성 중...");
+                 initRecvTransport(msg);
+            }
+        }
+        
+        // 3. Producer 생성 완료 (produce 응답)
+        if (msg.id && !msg.iceParameters && !msg.rtpCapabilities && !msg.producerId) {
+             if (window.pendingProducerCallback) {
+                 log(`✅ Producer ID Confirmed: ${msg.id}`);
+                 myProducerId = msg.id;
+                 window.pendingProducerCallback({ id: msg.id });
+                 window.pendingProducerCallback = null;
+                 // Loopback Test 제거: 이제 다른 사람의 소리만 듣습니다.
+             }
+        }
+        
+        // 4. Consume 응답
+        if (msg.id && msg.producerId && msg.kind && msg.rtpParameters) {
+            log("Consume 응답 수신. Consumer 생성...");
+            finalizeConsume(msg);
+        }
+    }
+
+    async function produce() {
+        if (!device) return;
+        log("서버에 Transport 생성 요청 중...");
+        ws.send(JSON.stringify({
+            type: 'createTransport',
+            roomId: document.getElementById('roomId').value,
+            data: {
+                roomId: document.getElementById('roomId').value,
+                direction: 'send'
+            }
+        }));
+    }
+
+    // Producer를 소비(Consume)하기 위한 진입점
+    async function consumeProducer(remoteProducerId) {
+        if (consumerTransport) {
+            // 이미 Recv Transport가 있으면 바로 Consume 요청
+            requestConsume(remoteProducerId);
+        } else {
+            // Transport가 없으면 생성 요청 후 대기열에 추가
+            log(`Recv Transport 없음. 생성 요청 및 대기열 추가: ${remoteProducerId}`);
+            pendingProducers.push(remoteProducerId);
+            
+            if (!isCreatingRecvTransport) {
+                isCreatingRecvTransport = true;
+                ws.send(JSON.stringify({
+                    type: 'createTransport',
+                    roomId: document.getElementById('roomId').value,
+                    data: { 
+                        roomId: document.getElementById('roomId').value,
+                        direction: 'recv' 
+                    }
+                }));
+            }
+        }
+    }
+
+    function requestConsume(remoteProducerId) {
+        log(`Consumer 요청 전송 (ProducerID: ${remoteProducerId})`);
+        ws.send(JSON.stringify({
+            type: 'consume',
+            roomId: document.getElementById('roomId').value,
+            data: {
+                roomId: document.getElementById('roomId').value,
+                transportId: consumerTransport.id,
+                producerId: remoteProducerId,
+                rtpCapabilities: device.rtpCapabilities
+            }
+        }));
+    }
+
+    async function initSendTransport(serverData) {
+        try {
+            producerTransport = device.createSendTransport(serverData);
+            log("✅ Send Transport 생성 완료");
+
+            producerTransport.on('connect', ({ dtlsParameters }, callback, errback) => {
+                ws.send(JSON.stringify({
+                    type: 'connectTransport',
+                    roomId: document.getElementById('roomId').value,
+                    data: { 
+                        roomId: document.getElementById('roomId').value,
+                        transportId: serverData.id, 
+                        dtlsParameters 
+                    }
+                }));
+                callback();
+            });
+
+            producerTransport.on('produce', ({ kind, rtpParameters }, callback, errback) => {
+                log("미디어 데이터 전송 시도 (produce 이벤트)");
+                ws.send(JSON.stringify({
+                    type: 'produce',
+                    roomId: document.getElementById('roomId').value,
+                    data: { 
+                        roomId: document.getElementById('roomId').value,
+                        transportId: serverData.id, 
+                        kind, 
+                        rtpParameters 
+                    }
+                }));
+                window.pendingProducerCallback = callback;
+            });
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const track = stream.getAudioTracks()[0];
+            setupVisualizer(stream, 'audioVisualizer', 'volumeLevel'); // Input
+
+            producer = await producerTransport.produce({ track });
+            log("🚀 방송 시작 (Sending)");
+            updateStatus("방송 중 🎤", "#4caf50");
+            document.getElementById('btnMute').disabled = false;
+            document.getElementById('btnProduce').disabled = true;
+
+        } catch (e) { log(`❌ Send Transport 에러: ${e.message}`); }
+    }
+    
+    async function initRecvTransport(serverData) {
+        try {
+            consumerTransport = device.createRecvTransport(serverData);
+            log("✅ Recv Transport 생성 완료");
+            isCreatingRecvTransport = false;
+            
+            consumerTransport.on('connect', ({ dtlsParameters }, callback, errback) => {
+                 ws.send(JSON.stringify({
+                    type: 'connectTransport',
+                    roomId: document.getElementById('roomId').value,
+                    data: { 
+                        roomId: document.getElementById('roomId').value,
+                        transportId: serverData.id, 
+                        dtlsParameters 
+                    }
+                }));
+                callback();
+            });
+            
+            // 대기 중인 Producer 처리
+            if (pendingProducers.length > 0) {
+                log(`대기 중인 ${pendingProducers.length}개의 스트림 연결 시도...`);
+                while (pendingProducers.length > 0) {
+                    const pid = pendingProducers.shift();
+                    requestConsume(pid);
+                }
+            }
+            
+        } catch(e) { log(`❌ Recv Transport 에러: ${e.message}`); }
+    }
+    
+    async function finalizeConsume(data) {
+        const { id, producerId, kind, rtpParameters } = data;
+        
+        // 중요: 이미 해당 Producer를 소비 중인지 체크 (생략 가능하지만 안전장치)
+        // if (consumers.has(id)) ... (using Map)
+        
+        const newConsumer = await consumerTransport.consume({ id, producerId, kind, rtpParameters });
+        
+        // Resume Server-side Consumer
+        log("Resuming Consumer on Server...");
+        ws.send(JSON.stringify({
+            type: 'resume',
+            roomId: document.getElementById('roomId').value,
+            data: { 
+                roomId: document.getElementById('roomId').value,
+                consumerId: id 
+            }
+        }));
+        
+        log(`✅ Consumer 생성 완료! (${producerId.substring(0,5)}...) 오디오 수신 중...`);
+        
+        const { track } = newConsumer;
+        const remoteStream = new MediaStream([track]);
+        
+        // 동적 Audio 엘리먼트 생성 (다중 사용자 지원)
+        const newAudioEl = document.createElement('audio');
+        newAudioEl.id = `audio-${id}`;
+        newAudioEl.autoplay = true;
+        newAudioEl.srcObject = remoteStream;
+        // 보이지 않게 처리하거나 디버깅용으로 표시
+        newAudioEl.style.display = 'none'; 
+        document.body.appendChild(newAudioEl);
+        
+        await newAudioEl.play().catch(e => log(`Autoplay Error (User interaction needed?): ${e}`));
+        
+        // Visualizer는 최신 Stream에 연결 (또는 믹싱 필요하지만 여기선 단순화)
+        setupVisualizer(remoteStream, 'outputVisualizer', 'outputVolumeLevel');
+    }
+
+    function toggleMute() {
+        if (producer) {
+            producer.track.enabled = !producer.track.enabled;
+            const isEnabled = producer.track.enabled;
+            document.getElementById('btnMute').innerText = isEnabled ? "음소거" : "음소거 해제";
+            document.getElementById('btnMute').style.background = isEnabled ? "#ff9800" : "#f44336";
+            log(`마이크 ${isEnabled ? "활성화" : "음소거됨"}`);
+        }
+    }
+
+    // --- Visualizer ---
+    // --- Visualizer ---
+    function setupVisualizer(stream, canvasId, labelId) {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return; 
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.clientWidth; // Resizing correct
+
+        function draw() {
+            requestAnimationFrame(draw);
+            analyser.getByteFrequencyData(dataArray);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let sum = 0;
+            const barWidth = (canvas.width / dataArray.length) * 2.5;
+            let x = 0;
+
+            for(let i = 0; i < dataArray.length; i++) {
+                const barHeight = dataArray[i] / 2;
+                // Color mapping: Input=Red/Purple, Output=Blue/Green
+                if (canvasId === 'outputVisualizer') {
+                     ctx.fillStyle = `rgb(50, ${barHeight + 100}, 200)`;
+                } else {
+                     ctx.fillStyle = `rgb(${barHeight + 100}, 50, 100)`;
+                }
+                
+                ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                x += barWidth + 1;
+                sum += dataArray[i];
+            }
+            if(labelId) document.getElementById(labelId).innerText = `Volume: ${Math.round(sum / dataArray.length)}`;
+        }
+        draw();
+    }
+</script>
+</body>
+</html>

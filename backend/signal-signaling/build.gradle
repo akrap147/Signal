@@ -1,0 +1,12 @@
+dependencies {
+    implementation project(':signal-common')
+
+    // WebSocket
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // RabbitMQ
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+}
+
+bootJar {
+    enabled = true
+}
