@@ -1,62 +1,40 @@
-import * as mediasoup from 'mediasoup';
-import { config } from './config.js';
-import { v4 as uuidv4 } from 'uuid';
+import { WorkerHandler } from './handlers/WorkerHandler.js';
+import { RoomHandler } from './handlers/RoomHandler.js';
+import { TransportHandler } from './handlers/TransportHandler.js';
 
 class MediasoupManager {
   constructor() {
-    this.workers = [];
-    this.routers = new Map(); // roomId -> router
-    this.transports = new Map(); // transportId -> transport
-    this.producers = new Map(); // producerId -> producer
-    this.consumers = new Map(); // consumerId -> consumer
+    this.workerHandler = new WorkerHandler();
+    this.roomHandler = new RoomHandler(this.workerHandler);
+    this.transportHandler = new TransportHandler(this.roomHandler);
   }
 
   async init() {
-    // 기본적으로 하나만 생성 (스케일링 필요 시 루프)
-    const worker = await mediasoup.createWorker(config.mediasoup.workerSettings);
-    worker.on('died', () => {
-      console.error('mediasoup worker died');
-      process.exit(1);
-    });
-    this.workers.push(worker);
-    console.log(`[Mediasoup] Worker created (pid: ${worker.pid})`);
-  }
-
-  getWorker() {
-    // 간단하게 첫 번째 worker 반환 (라운드 로빈 등 확장 가능)
-    return this.workers[0];
+    await this.workerHandler.init();
   }
 
   async getOrCreateRouter(roomId) {
-    if (this.routers.has(roomId)) {
-      return this.routers.get(roomId);
-    }
-
-    const worker = this.getWorker();
-    const router = await worker.createRouter(config.mediasoup.routerOptions);
-    this.routers.set(roomId, router);
-    console.log(`[Mediasoup] Router created for room: ${roomId}`);
-    return router;
+    return this.roomHandler.getOrCreateRouter(roomId);
   }
 
   async createWebRtcTransport(roomId) {
-    const router = await this.getOrCreateRouter(roomId);
-    const transport = await router.createWebRtcTransport(config.mediasoup.webRtcTransportOptions);
+    return this.transportHandler.createWebRtcTransport(roomId);
+  }
 
-    transport.on('dtlsstatechange', (dtlsState) => {
-      if (dtlsState === 'closed') {
-        transport.close();
-      }
-    });
+  async connectWebRtcTransport(transportId, dtlsParameters) {
+    return this.transportHandler.connectWebRtcTransport(transportId, dtlsParameters);
+  }
 
-    this.transports.set(transport.id, transport);
-    
-    return {
-      id: transport.id,
-      iceParameters: transport.iceParameters,
-      iceCandidates: transport.iceCandidates,
-      dtlsParameters: transport.dtlsParameters,
-    };
+  async produce(transportId, kind, rtpParameters) {
+    return this.transportHandler.produce(transportId, kind, rtpParameters);
+  }
+
+  async consume(transportId, producerId, rtpCapabilities, roomId) {
+    return this.transportHandler.consume(transportId, producerId, rtpCapabilities, roomId);
+  }
+
+  async resume(consumerId) {
+    return this.transportHandler.resume(consumerId);
   }
 }
 

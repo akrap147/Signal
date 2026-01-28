@@ -45,18 +45,40 @@ async function run() {
             const transportInfo = await mediasoupManager.createWebRtcTransport(content.roomId);
             response = { success: true, ...transportInfo };
           }
+          else if (routingKey === 'signal.media.connectTransport') {
+            const { transportId, dtlsParameters } = content;
+            await mediasoupManager.connectWebRtcTransport(transportId, dtlsParameters);
+            response = { success: true };
+          }
+          else if (routingKey === 'signal.media.produce') {
+            const { transportId, kind, rtpParameters } = content;
+            const producerInfo = await mediasoupManager.produce(transportId, kind, rtpParameters);
+            response = { success: true, ...producerInfo };
+          }
+          else if (routingKey === 'signal.media.consume') {
+            const { transportId, producerId, rtpCapabilities, roomId } = content;
+            const consumerInfo = await mediasoupManager.consume(transportId, producerId, rtpCapabilities, roomId);
+            response = { success: true, ...consumerInfo };
+          }
+          else if (routingKey === 'signal.media.resume') {
+             const { consumerId } = content;
+             await mediasoupManager.resume(consumerId);
+             response = { success: true };
+          }
           
           // 응답 전송 (RPC 패턴)
           if (replyTo) {
             channel.sendToQueue(replyTo, Buffer.from(JSON.stringify(response)), {
-              correlationId: correlationId
+              correlationId: correlationId,
+              contentType: 'application/json'
             });
           }
         } catch (err) {
           console.error('Error handling message', err);
           if (replyTo) {
             channel.sendToQueue(replyTo, Buffer.from(JSON.stringify({ success: false, error: err.message })), {
-              correlationId: correlationId
+              correlationId: correlationId,
+              contentType: 'application/json'
             });
           }
         }

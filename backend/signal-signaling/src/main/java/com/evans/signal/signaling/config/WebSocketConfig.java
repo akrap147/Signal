@@ -14,6 +14,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final VoiceSignalingHandler voiceSignalingHandler;
 
+    // WebSocket end point 지정
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(voiceSignalingHandler, "/ws/signaling")

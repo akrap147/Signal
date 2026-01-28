@@ -44,7 +44,17 @@ public class RabbitMqConfig {
     public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory) {
         RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
         rabbitTemplate.setMessageConverter(jsonMessageConverter());
-        rabbitTemplate.setReplyAddress(SIGNALING_REPLY_QUEUE); // RPC 응답 큐 설정
+        rabbitTemplate.setReplyAddress(SIGNALING_REPLY_QUEUE);
+        rabbitTemplate.setReplyTimeout(6000); // 6초 타임아웃
         return rabbitTemplate;
+    }
+
+    @Bean
+    public org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer replyListenerContainer(ConnectionFactory connectionFactory, RabbitTemplate rabbitTemplate) {
+        org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer container = new org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer();
+        container.setConnectionFactory(connectionFactory);
+        container.setQueues(signalingReplyQueue());
+        container.setMessageListener(rabbitTemplate); // RabbitTemplate이 스스로 리스너가 되어 응답 처리
+        return container;
     }
 }
