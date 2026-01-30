@@ -31,18 +31,24 @@ public class VoiceSignalingHandler extends TextWebSocketHandler {
     // Room ID -> Set of WebSocketSessions
     private final Map<String, Set<WebSocketSession>> rooms = new ConcurrentHashMap<>();
 
-    // Session ID -> Room ID (for quick lookup on disconnect)
-    private final Map<String, String> sessionRoomMap = new ConcurrentHashMap<>();
+    // Session ID -> Transport ID (to clean up media resources on disconnect)
+    private final Map<String, String> sessionTransportMap = new ConcurrentHashMap<>();
 
 
     // 세션 제거 과정
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         String roomId = sessionRoomMap.remove(session.getId());
+        String transportId = sessionTransportMap.remove(session.getId());
 
+        // 1. 미디어 서버에 리소스 정리 요청 (Transport 종료)
+        if (transportId != null) {
+            Map<String, Object> closeRequest = Map.of("transportId", transportId);
+            rabbitTemplate.convertAndSend(SIGNALING_EXCHANGE, "signal.media.closeTransport", closeRequest);
+            log.info("Requested Media Server to close transport: {}", transportId);
+        }
 
-        // roomSession에 들어가 있음연 지우고
-        // room이 Empty면 지우고
+        // 2. 룸 세션 정리
         if (roomId != null) {
             Set<WebSocketSession> roomSessions = rooms.get(roomId);
             if (roomSessions != null) {
@@ -107,6 +113,17 @@ public class VoiceSignalingHandler extends TextWebSocketHandler {
 
         if (response != null) {
             String jsonResponse = objectMapper.writeValueAsString(response);
+            
+            // Transport 생성 시, ID 저장 (나갈 때 지우기 위해)
+            if ("createTransport".equals(signalingMessage.getType())) {
+                Map<String, Object> responseMap = objectMapper.convertValue(response, Map.class);
+                if (Boolean.TRUE.equals(responseMap.get("success"))) {
+                    String transportId = (String) responseMap.get("id");
+                    sessionTransportMap.put(session.getId(), transportId);
+                    log.info("Mapped Session {} to Transport {}", session.getId(), transportId);
+                }
+            }
+
             session.sendMessage(new TextMessage(jsonResponse));
 
             // Produce 성공 시, 다른 사람들에게 알림 (Broadcasting)
