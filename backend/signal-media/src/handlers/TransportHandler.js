@@ -102,4 +102,31 @@ export class TransportHandler {
     console.log(`[Mediasoup] Consumer resumed: ${consumerId}`);
     return { resumed: true };
   }
+
+  async closeTransport(transportId) {
+    const transport = this.transports.get(transportId);
+    if (!transport) return;
+
+    transport.close();
+    this.transports.delete(transportId);
+    console.log(`[Mediasoup] Transport closed: ${transportId}`);
+  }
+
+  async closeProducer(producerId) {
+    const producer = this.producers.get(producerId);
+    if (!producer) return;
+
+    producer.close();
+    this.producers.delete(producerId);
+    console.log(`[Mediasoup] Producer closed: ${producerId}`);
+  }
+
+  async closeConsumer(consumerId) {
+    const consumer = this.consumers.get(consumerId);
+    if (!consumer) return;
+
+    consumer.close();
+    this.consumers.delete(consumerId);
+    console.log(`[Mediasoup] Consumer closed: ${consumerId}`);
+  }
 }

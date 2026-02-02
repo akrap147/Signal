@@ -8,16 +8,23 @@ dotenv.config();
 let connection;
 let channel;
 
-async function run() {
-  console.log('--- Starting Media Server ---');
+const RECONNECT_INTERVAL = 5000;
 
-  // 1. Mediasoup 초기화
-  await mediasoupManager.init();
-
-  // 2. RabbitMQ 연결
+async function connectRabbitMQ() {
   try {
+    console.log('[RabbitMQ] Connecting...');
     connection = await amqp.connect(config.rabbitmq.url);
     channel = await connection.createChannel();
+
+    connection.on('error', (err) => {
+      console.error('[RabbitMQ] Connection error', err);
+      setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
+    });
+
+    connection.on('close', () => {
+      console.warn('[RabbitMQ] Connection closed. Reconnecting...');
+      setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
+    });
     
     await channel.assertExchange(config.rabbitmq.exchange, 'topic', { durable: true });
     const q = await channel.assertQueue(config.rabbitmq.requestQueue, { durable: true });
@@ -65,6 +72,21 @@ async function run() {
              await mediasoupManager.resume(consumerId);
              response = { success: true };
           }
+          else if (routingKey === 'signal.media.closeTransport') {
+            const { transportId } = content;
+            await mediasoupManager.closeTransport(transportId);
+            response = { success: true };
+          }
+          else if (routingKey === 'signal.media.closeProducer') {
+            const { producerId } = content;
+            await mediasoupManager.closeProducer(producerId);
+            response = { success: true };
+          }
+          else if (routingKey === 'signal.media.closeConsumer') {
+            const { consumerId } = content;
+            await mediasoupManager.closeConsumer(consumerId);
+            response = { success: true };
+          }
           
           // 응답 전송 (RPC 패턴)
           if (replyTo) {
@@ -88,8 +110,18 @@ async function run() {
     });
 
   } catch (error) {
-    console.error('Failed to connect to RabbitMQ', error);
+    console.error('[RabbitMQ] Failed to connect', error);
+    setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
   }
+}
+
+async function run() {
+  console.log('--- Starting Media Server ---');
+  // 1. Mediasoup 초기화
+  await mediasoupManager.init();
+
+  // 2. RabbitMQ 연결 (Auto-Reconnect)
+  connectRabbitMQ();
 }
 
 run();
