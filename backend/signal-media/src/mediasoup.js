@@ -36,6 +36,18 @@ class MediasoupManager {
   async resume(consumerId) {
     return this.transportHandler.resume(consumerId);
   }
+
+  async closeTransport(transportId) {
+    return this.transportHandler.closeTransport(transportId);
+  }
+
+  async closeProducer(producerId) {
+    return this.transportHandler.closeProducer(producerId);
+  }
+
+  async closeConsumer(consumerId) {
+    return this.transportHandler.closeConsumer(consumerId);
+  }
 }
 
 export const mediasoupManager = new MediasoupManager();
