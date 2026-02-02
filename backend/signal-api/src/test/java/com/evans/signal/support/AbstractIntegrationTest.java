@@ -6,15 +6,18 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers
+// @Testcontainers removed to allow manual singleton control
 public abstract class AbstractIntegrationTest {
 
-    @Container
     static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:15-alpine");
-
-    @Container
+    
     static final org.testcontainers.containers.GenericContainer<?> redis =
             new org.testcontainers.containers.GenericContainer<>("redis:alpine").withExposedPorts(6379);
+
+    static {
+        postgres.start();
+        redis.start();
+    }
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
