@@ -31,6 +31,9 @@ public class VoiceSignalingHandler extends TextWebSocketHandler {
     // Room ID -> Set of WebSocketSessions
     private final Map<String, Set<WebSocketSession>> rooms = new ConcurrentHashMap<>();
 
+    // Session ID -> Room ID (for quick lookup on disconnect)
+    private final Map<String, String> sessionRoomMap = new ConcurrentHashMap<>();
+
     // Session ID -> Transport ID (to clean up media resources on disconnect)
     private final Map<String, String> sessionTransportMap = new ConcurrentHashMap<>();
 
