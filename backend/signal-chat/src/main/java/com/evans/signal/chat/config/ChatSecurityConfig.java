@@ -1,12 +1,19 @@
 package com.evans.signal.chat.config;
 
+import com.evans.signal.auth.jwt.JwtAuthenticationFilter;
+import com.evans.signal.auth.jwt.JwtTokenProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@RequiredArgsConstructor
 public class ChatSecurityConfig {
+
+    private final JwtTokenProvider jwtTokenProvider;
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -14,7 +21,8 @@ public class ChatSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/ws-stomp/**").permitAll() // WebSocket 연결 허용 🔓
                         .anyRequest().permitAll() // (테스트용) 모든 요청 허용
-                );
+                )
+                .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
