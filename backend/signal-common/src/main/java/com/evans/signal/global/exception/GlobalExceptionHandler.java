@@ -1,36 +1,25 @@
 package com.evans.signal.global.exception;
 
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
-
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException e) {
-        return createErrorResponse(HttpStatus.BAD_REQUEST, e.getMessage());
+    // 비즈니스 로직 예외 처리
+    @ExceptionHandler(CustomException.class)
+    protected ResponseEntity<ErrorResponse> handleCustomException(CustomException e) {
+        log.error("handleCustomException throw CustomException : {}", e.getErrorCode());
+        return ErrorResponse.toResponseEntity(e.getErrorCode());
     }
 
+    // 그 외 모든 예외
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleException(Exception e) {
-        e.printStackTrace();
-        // 디버깅을 위해 구체적인 에러 메시지 반환
-        return createErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR, e.toString());
-    }
-
-    private ResponseEntity<Map<String, Object>> createErrorResponse(HttpStatus status, String message) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", LocalDateTime.now());
-        body.put("status", status.value());
-        body.put("error", status.getReasonPhrase());
-        body.put("message", message);
-        
-        return new ResponseEntity<>(body, status);
+    protected ResponseEntity<ErrorResponse> handleException(Exception e) {
+        log.error("handleException throw Exception : ", e);
+        return ErrorResponse.toResponseEntity(GlobalErrorCode.INTERNAL_SERVER_ERROR);
     }
 }

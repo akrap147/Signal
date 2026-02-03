@@ -27,4 +27,6 @@ public class UserEntity extends BaseTimeEntity {
 
     @Column(columnDefinition = "TEXT")
     private String profileImage;
+
+
 }
