@@ -8,7 +8,9 @@ import useAuthStore from '../../stores/useAuthStore';
 const ChatArea = () => {
   const { activeServerId, activeChannelId } = useServerStore();
   const { data: serverDetails } = useServerDetails(activeServerId);
-  const { userId } = useAuthStore();
+  const { user } = useAuthStore();
+  const userId = user?.id; // 식별자
+  const username = user?.username || user?.email || 'Unknown'; // 표시용 Names
   
   const { messages, sendMessage, subscribeToChannel } = useChatStore();
   const [inputValue, setInputValue] = React.useState('');
@@ -32,10 +34,12 @@ const ChatArea = () => {
 
   // 2. 메시지 전송 (엔터 키)
   const handleKeyDown = (e) => {
-    // 한글 조합 중(IME Composition)일 때는 이벤트 무시
-    if (e.nativeEvent.isComposing) return;
-
+    // 한글 입력 중 엔터 키 입력 시 중복 전송 방지 등을 위해 isComposing 체크를 할 수도 있지만,
+    // 현재 "전송이 안 된다"는 이슈가 있으므로 체크를 제거하고 기본 동작 방지(preventDefault)를 먼저 수행
     if (e.key === 'Enter' && !e.shiftKey) {
+      // 한글 조합 중이더라도 엔터를 누르면 전송하도록 허용 (사용자 경험상 이게 더 나음)
+      if (e.nativeEvent.isComposing) return;
+      
       e.preventDefault();
       if (inputValue.trim()) {
         sendMessage(activeChannelId, userId, inputValue); // 전송!
