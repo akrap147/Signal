@@ -1,6 +1,6 @@
 package com.evans.signal.chat.domain;
 
-import com.evans.signal.common.BaseTimeEntity;
+import com.evans.signal.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
