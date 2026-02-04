@@ -1,41 +1,44 @@
-import './App.css'
-import ServerRail from './components/server/ServerRail'
-import ServerSidebar from './components/server/ServerSidebar'
-import ChatArea from './components/chat/ChatArea'
-import LandingPage from './pages/LandingPage'
-import useAuthStore from './stores/useAuthStore'
+import { Routes, Route, Navigate } from 'react-router-dom';
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import MainPage from './pages/MainPage';
+import ProtectedRoute from './components/ProtectedRoute';
 
-import useChatStore from './stores/useChatStore'
-import React, { useEffect } from 'react'
+import PublicRoute from './components/PublicRoute';
 
 function App() {
-  const { isAuthenticated, userId } = useAuthStore()
-  const { connect, disconnect } = useChatStore()
-
-  useEffect(() => {
-    if (isAuthenticated && userId) {
-      connect(userId)
-    } else {
-      disconnect()
-    }
-  }, [isAuthenticated, userId, connect, disconnect])
-
-  if (!isAuthenticated) {
-    return <LandingPage />
-  }
-
   return (
-    <div className="app-container">
-      {/* 1. Left Rail: Server List */}
-      <ServerRail />
+    <Routes>
+      <Route path="/login" element={
+        <PublicRoute>
+          <LoginPage />
+        </PublicRoute>
+      } />
+      <Route path="/signup" element={
+        <PublicRoute>
+          <SignupPage />
+        </PublicRoute>
+      } />
+      
+      {/* Protected Routes */}
+      {/* Root redirect to DM */}
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Navigate to="/channels/@me" replace />
+        </ProtectedRoute>
+      } />
+      
+      {/* Main App Routes with URL params */}
+      <Route path="/channels/:serverId/:channelId?" element={
+        <ProtectedRoute>
+          <MainPage />
+        </ProtectedRoute>
+      } />
 
-      {/* 2. Main Layout: Sidebar + Chat */}
-      <div className="main-layout">
-        <ServerSidebar />
-        <ChatArea />
-      </div>
-    </div>
-  )
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
-export default App
+export default App;

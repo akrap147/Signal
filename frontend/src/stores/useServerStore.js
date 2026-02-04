@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 const useServerStore = create((set) => ({
-  activeServerId: 'dm', // 'dm' or serverId (Long)
+  activeServerId: '@me', // '@me', 'dm', or serverId (Long)
   activeChannelId: null,
   
   // Actions

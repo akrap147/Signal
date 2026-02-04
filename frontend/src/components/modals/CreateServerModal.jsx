@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
-import './Modal.css';
-import useAuthStore from '../../stores/useAuthStore';
-import { useQueryClient } from '@tanstack/react-query';
-import apiClient from '../../api/client';
+import { useServerActions } from '../../hooks/server/useServerActions';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
 
 const CreateServerModal = ({ onClose }) => {
   const [mode, setMode] = useState('create'); // 'create' or 'join'
   const [serverName, setServerName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   
-  const { userId } = useAuthStore();
-  const queryClient = useQueryClient();
+  const { createServer, joinServer, isCreating, isJoining } = useServerActions();
 
   // 서버 생성
   const handleCreate = async (e) => {
@@ -18,12 +16,7 @@ const CreateServerModal = ({ onClose }) => {
     if (!serverName.trim()) return;
 
     try {
-      await apiClient.post('/servers', {
-        name: serverName,
-        ownerId: userId // TODO: 백엔드에서 토큰으로 처리하면 제거 가능
-      });
-      // 성공 시 캐시 무효화 (목록 갱신) & 닫기
-      queryClient.invalidateQueries(['myServers']);
+      await createServer(serverName);
       onClose();
     } catch (error) {
       console.error('Failed to create server:', error);
@@ -37,65 +30,62 @@ const CreateServerModal = ({ onClose }) => {
     if (!inviteCode.trim()) return;
 
     try {
-      await apiClient.post('/servers/join', {
-        inviteCode: inviteCode,
-        userId: userId
-      });
-      queryClient.invalidateQueries(['myServers']);
+      await joinServer(inviteCode);
       onClose();
     } catch (error) {
       console.error('Failed to join server:', error);
-      alert('Failed to join server. Check your invite code.');
+      alert('참가 실패. 초대 코드를 확인해주세요.');
     }
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{mode === 'create' ? 'Create a Server' : 'Join a Server'}</h2>
-          <div className="mode-toggle">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+      <div className="bg-zinc-800 p-6 rounded-lg shadow-xl w-96 text-white" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold">{mode === 'create' ? '서버 만들기' : '서버 참가하기'}</h2>
+          
+          <div className="flex bg-zinc-900 rounded p-1">
             <button 
-                className={mode === 'create' ? 'active' : ''} 
+                className={`px-3 py-1 text-sm rounded ${mode === 'create' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`} 
                 onClick={() => setMode('create')}>Create</button>
             <button 
-                className={mode === 'join' ? 'active' : ''} 
+                className={`px-3 py-1 text-sm rounded ${mode === 'join' ? 'bg-zinc-700' : 'hover:bg-zinc-800'}`} 
                 onClick={() => setMode('join')}>Join</button>
           </div>
         </div>
 
         {mode === 'create' ? (
-          <form onSubmit={handleCreate}>
-            <div className="form-group">
-              <label>Server Name</label>
-              <input 
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase">서버 이름</label>
+              <Input 
                 type="text" 
                 value={serverName}
                 onChange={(e) => setServerName(e.target.value)}
-                placeholder="My Awesome Server"
+                placeholder="나만의 멋진 서버"
                 autoFocus
               />
             </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-create">Create</button>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button type="button" onClick={onClose} className="bg-transparent hover:bg-zinc-700 text-zinc-300">취소</Button>
+              <Button type="submit" disabled={isCreating}>만들기</Button>
             </div>
           </form>
         ) : (
-          <form onSubmit={handleJoin}>
-            <div className="form-group">
-              <label>Invite Code</label>
-              <input 
+          <form onSubmit={handleJoin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-zinc-400 mb-1 uppercase">초대 코드</label>
+              <Input 
                 type="text" 
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Enter invite code (e.g. AbC123XyZ)"
+                placeholder="초대 코드 입력 (예: AbC123XyZ)"
                 autoFocus
               />
             </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-create">Join Server</button>
+            <div className="flex justify-end gap-2 mt-6">
+              <Button type="button" onClick={onClose} className="bg-transparent hover:bg-zinc-700 text-zinc-300">취소</Button>
+              <Button type="submit" disabled={isJoining}>참가하기</Button>
             </div>
           </form>
         )}

@@ -9,6 +9,20 @@ const client = axios.create({
 });
 
 // 응답 인터셉터 (에러 처리 공통화 등)
+import useAuthStore from '../stores/useAuthStore';
+
+// 요청 인터셉터: 토큰 주입
+client.interceptors.request.use(
+  (config) => {
+    const token = useAuthStore.getState().accessToken;
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 client.interceptors.response.use(
   (response) => response,
   (error) => {
