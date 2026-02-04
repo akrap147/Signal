@@ -8,8 +8,6 @@ import java.util.Optional;
 public interface ServerRepository {
     Server save(Server server);
 
-    Optional<Server> findByInviteCode(String inviteCode);
-
     List<Server> findAllById(List<Long> ids);
 
     Optional<Server> findById(Long id);

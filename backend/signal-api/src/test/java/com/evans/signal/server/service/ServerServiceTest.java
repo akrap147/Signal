@@ -4,14 +4,16 @@ import com.evans.signal.channel.domain.Category;
 import com.evans.signal.channel.domain.Channel;
 import com.evans.signal.channel.service.port.CategoryRepository;
 import com.evans.signal.channel.service.port.ChannelRepository;
+import com.evans.signal.global.exception.CustomException;
 import com.evans.signal.server.domain.Member;
+import com.evans.signal.server.domain.Role;
 import com.evans.signal.server.domain.Server;
-import com.evans.signal.server.dto.response.MemberResponse;
-import com.evans.signal.server.dto.response.ServerDetailResponse;
+import com.evans.signal.server.dto.ServerCreateDto;
+import com.evans.signal.server.dto.response.SimpleServerResponse;
+import com.evans.signal.server.exception.ServerErrorCode;
 import com.evans.signal.server.service.port.MemberRepository;
 import com.evans.signal.server.service.port.ServerRepository;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,161 +26,115 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class ServerServiceTest {
 
+    @InjectMocks
+    private ServerService serverService;
+
     @Mock private ServerRepository serverRepository;
     @Mock private MemberRepository memberRepository;
-    @Mock private CategoryRepository categoryRepository;
     @Mock private ChannelRepository channelRepository;
-    @InjectMocks private ServerService serverService;
+    @Mock private CategoryRepository categoryRepository;
+    @Mock private InviteService inviteService;
 
-    @Nested
-    @DisplayName("서버 가입 테스트")
-    class JoinTest {
-        @Test
-        @DisplayName("초대 코드로 서버 가입 성공")
-        void joinServer_Success() {
-            String inviteCode = "valid-code";
-            Long userId = 100L;
-            Server mockServer = Server.builder().id(1L).name("Test Server").inviteCode(inviteCode).build();
+    @Test
+    @DisplayName("서버 생성 성공: 서버, 멤버, 기본 카테고리/채널이 생성된다.")
+    void createServer_success() {
+        // given
+        Long userId = 1L;
+        ServerCreateDto dto = new ServerCreateDto("Test Server");
 
-            given(serverRepository.findByInviteCode(inviteCode)).willReturn(Optional.of(mockServer));
-            given(memberRepository.save(any(Member.class)))
-                    .willAnswer(inv -> Member.builder().id(123L).build());
+        // Mocks
+        Server server = Server.builder().id(10L).name("Test Server").ownerId(userId).build();
+        given(serverRepository.save(any(Server.class))).willReturn(server);
+        given(categoryRepository.save(any(Category.class))).willReturn(Category.builder().id(100L).build()); // Mocking saves
 
-            Long result = serverService.joinServer(inviteCode, userId);
+        // when
+        Long serverId = serverService.createServer(dto, userId);
 
-            assertThat(result).isEqualTo(123L);
-        }
-
-        @Test
-        @DisplayName("유효하지 않은 초대 코드로 가입 실패")
-        void joinServer_Fail_InvalidCode() {
-            String invalidCode = "invalid-code";
-            Long userId = 100L;
-
-            given(serverRepository.findByInviteCode(invalidCode)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> serverService.joinServer(invalidCode, userId))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Invalid invite code");
-        }
+        // then
+        assertThat(serverId).isEqualTo(10L);
+        verify(serverRepository).save(any(Server.class));
+        verify(memberRepository).save(any(Member.class));
+        verify(categoryRepository, times(3)).save(any(Category.class)); // 3 times actually
+        verify(channelRepository, times(3)).save(any(Channel.class));   // 3 times actually
     }
 
-    @Nested
-    @DisplayName("서버 조회 테스트")
-    class ReadTest {
-        @Test
-        @DisplayName("서버 상세 조회 성공")
-        void getServerDetails_Success() {
-            Long serverId = 1L;
-            Server mockServer = Server.builder().id(serverId).name("Detail Server").ownerId(10L).build();
-            Category cat1 = Category.builder().id(10L).serverId(serverId).name("General").displayOrder(0).build();
-            Category cat2 = Category.builder().id(11L).serverId(serverId).name("Game").displayOrder(1).build();
-            Channel ch1 = Channel.builder().id(100L).serverId(serverId).categoryId(10L).name("chat").type("TEXT").displayOrder(0).build();
-            Channel ch2 = Channel.builder().id(101L).serverId(serverId).categoryId(11L).name("voice-room").type("VOICE").displayOrder(0).build();
+    @Test
+    @DisplayName("서버 가입 성공: 초대 코드로 서버 ID를 찾고 멤버를 저장한다.")
+    void joinServer_success() {
+        // given
+        String inviteCode = "validCode";
+        Long userId = 2L;
+        Long serverId = 10L;
 
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(mockServer));
-            given(categoryRepository.findAllByServerId(serverId)).willReturn(List.of(cat1, cat2));
-            given(channelRepository.findAllByServerId(serverId)).willReturn(List.of(ch1, ch2));
+        given(inviteService.getServerIdByInviteCode(inviteCode)).willReturn(serverId);
+        given(serverRepository.findById(serverId)).willReturn(Optional.of(Server.builder().id(serverId).build()));
 
-            ServerDetailResponse response = serverService.getServerDetails(serverId);
+        // when
+        Long resultServerId = serverService.joinServer(inviteCode, userId);
 
-            assertThat(response.getCategories()).hasSize(2);
-            assertThat(response.getCategories().get(0).getName()).isEqualTo("General");
-            assertThat(response.getCategories().get(0).getChannels()).hasSize(1);
-        }
-
-        @Test
-        @DisplayName("서버 멤버 목록 조회 성공")
-        void getServerMembers_Success() {
-            Long serverId = 1L;
-            Member member1 = Member.builder().id(10L).serverId(serverId).userId(100L).role("OWNER").build();
-            Member member2 = Member.builder().id(11L).serverId(serverId).userId(101L).role("MEMBER").build();
-
-            given(memberRepository.findAllByServerId(serverId)).willReturn(List.of(member1, member2));
-
-            List<MemberResponse> responses = serverService.getServerMembers(serverId);
-
-            assertThat(responses).hasSize(2);
-            assertThat(responses.get(0).getRole()).isEqualTo("OWNER");
-        }
+        // then
+        assertThat(resultServerId).isEqualTo(serverId);
+        verify(memberRepository).save(any(Member.class));
     }
 
-    @Nested
-    @DisplayName("서버 관리 테스트")
-    class ManageTest {
-        @Test
-        @DisplayName("서버 나가기 성공")
-        void leaveServer_Success() {
-            Long serverId = 1L;
-            Long userId = 100L;
-            Server server = Server.builder().id(serverId).ownerId(99L).build();
+    @Test
+    @DisplayName("초대 코드 생성 성공: 방장이면 초대 코드를 반환한다.")
+    void createInviteCode_success() {
+        // given
+        Long serverId = 10L;
+        Long ownerId = 1L;
+        Server server = Server.builder().id(serverId).ownerId(ownerId).build();
 
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
+        given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
+        given(inviteService.createInvite(anyLong(), anyLong(), anyLong())).willReturn("newCode");
 
-            serverService.leaveServer(serverId, userId);
+        // when
+        String code = serverService.createInviteCode(serverId, ownerId);
 
-            verify(memberRepository).deleteByServerIdAndUserId(serverId, userId);
-        }
+        // then
+        assertThat(code).isEqualTo("newCode");
+    }
 
-        @Test
-        @DisplayName("오너는 서버를 나갈 수 없음")
-        void leaveServer_Fail_Owner() {
-            Long serverId = 1L;
-            Long userId = 100L;
-            Server server = Server.builder().id(serverId).ownerId(userId).build();
+    @Test
+    @DisplayName("초대 코드 생성 실패: 방장이 아니면 예외가 발생한다.")
+    void createInviteCode_fail_notOwner() {
+        // given
+        Long serverId = 10L;
+        Long userId = 2L; // Not owner
+        Server server = Server.builder().id(serverId).ownerId(1L).build();
 
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
+        given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
 
-            assertThatThrownBy(() -> serverService.leaveServer(serverId, userId))
-                    .isInstanceOf(IllegalArgumentException.class);
-        }
+        // when & then
+        assertThatThrownBy(() -> serverService.createInviteCode(serverId, userId))
+                .isInstanceOf(CustomException.class)
+                .hasMessage(ServerErrorCode.NOT_OWNER.getMessage());
+    }
 
-        @Test
-        @DisplayName("서버 삭제 성공 (오너)")
-        void deleteServer_Success() {
-            Long serverId = 1L;
-            Long userId = 100L;
-            Server server = Server.builder().id(serverId).ownerId(userId).build();
+    @Test
+    @DisplayName("내 서버 목록 조회")
+    void findAllMyServers_success() {
+        // given
+        Long userId = 1L;
+        Member member = Member.builder().serverId(10L).userId(userId).build();
+        Server server = Server.builder().id(10L).name("Test Server").build();
 
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
+        given(memberRepository.findAllByUserId(userId)).willReturn(List.of(member));
+        given(serverRepository.findAllById(List.of(10L))).willReturn(List.of(server));
 
-            serverService.deleteServer(serverId, userId);
+        // when
+        List<SimpleServerResponse> responses = serverService.findAllMyServers(userId);
 
-            verify(serverRepository).deleteById(serverId);
-        }
-
-        @Test
-        @DisplayName("서버 삭제 실패 (오너 아님)")
-        void deleteServer_Fail_NotOwner() {
-            Long serverId = 1L;
-            Long userId = 100L;
-            Server server = Server.builder().id(serverId).ownerId(99L).build();
-
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
-
-            assertThatThrownBy(() -> serverService.deleteServer(serverId, userId))
-                    .isInstanceOf(IllegalArgumentException.class);
-        }
-
-        @Test
-        @DisplayName("멤버 추방 성공")
-        void kickMember_Success() {
-            Long serverId = 1L;
-            Long ownerId = 100L;
-            Long targetId = 101L;
-            Server server = Server.builder().id(serverId).ownerId(ownerId).build();
-
-            given(serverRepository.findById(serverId)).willReturn(Optional.of(server));
-
-            serverService.kickMember(serverId, targetId, ownerId);
-
-            verify(memberRepository).deleteByServerIdAndUserId(serverId, targetId);
-        }
+        // then
+        assertThat(responses).hasSize(1);
+        assertThat(responses.get(0).id()).isEqualTo(10L);
     }
 }

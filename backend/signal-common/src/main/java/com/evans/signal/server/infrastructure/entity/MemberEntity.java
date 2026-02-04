@@ -1,7 +1,7 @@
 package com.evans.signal.server.infrastructure.entity;
 
-import com.evans.signal.common.BaseTimeEntity;
 import jakarta.persistence.*;
+import com.evans.signal.server.domain.Role;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -27,9 +27,10 @@ public class MemberEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId; // User ID 참조
 
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
     @Builder.Default
-    private String role = "USER";
+    private Role role = Role.MEMBER;
 
     @Column(name = "joined_at")
     private LocalDateTime joinedAt;

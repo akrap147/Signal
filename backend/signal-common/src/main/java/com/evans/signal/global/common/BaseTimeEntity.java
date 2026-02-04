@@ -1,4 +1,4 @@
-package com.evans.signal.common;
+package com.evans.signal.global.common;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;

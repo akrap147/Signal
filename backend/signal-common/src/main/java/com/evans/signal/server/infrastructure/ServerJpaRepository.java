@@ -5,5 +5,4 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ServerJpaRepository extends JpaRepository<ServerEntity, Long> {
-    Optional<ServerEntity> findByInviteCode(String inviteCode);
 }
