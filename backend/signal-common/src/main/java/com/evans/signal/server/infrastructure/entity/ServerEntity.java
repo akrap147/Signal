@@ -1,6 +1,6 @@
 package com.evans.signal.server.infrastructure.entity;
 
-import com.evans.signal.common.BaseTimeEntity;
+import com.evans.signal.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,8 +22,6 @@ public class ServerEntity extends BaseTimeEntity {
     @Column(name = "owner_id", nullable = false)
     private Long ownerId; // User ID 참조
 
-    @Column(name = "invite_code", nullable = false, length = 20)
-    private String inviteCode;
 
     @Column(name = "icon_image", columnDefinition = "TEXT")
     private String iconImage;
