@@ -35,7 +35,7 @@ class FriendshipControllerTest {
     void sendFriendRequest_success() {
         // given
         Long userId = 1L;
-        FriendRequestDto dto = new FriendRequestDto(2L);
+        FriendRequestDto dto = new FriendRequestDto("friend@test.com");
         
         UserResponseDto friendInfo = UserResponseDto.builder()
                 .id(2L)
@@ -52,7 +52,7 @@ class FriendshipControllerTest {
                 .createdAt(LocalDateTime.now())
                 .build();
 
-        given(friendshipService.sendFriendRequest(userId, dto.getFriendId())).willReturn(response);
+        given(friendshipService.sendFriendRequest(userId, dto.getFriendEmail())).willReturn(response);
 
         // when
         ResponseEntity<FriendshipResponseDto> result = friendshipController.sendFriendRequest(userId, dto);
@@ -63,7 +63,7 @@ class FriendshipControllerTest {
         assertThat(result.getBody().getUserId()).isEqualTo(userId);
         assertThat(result.getBody().getFriendId()).isEqualTo(2L);
         assertThat(result.getBody().getStatus()).isEqualTo(FriendshipStatus.PENDING);
-        verify(friendshipService).sendFriendRequest(userId, dto.getFriendId());
+        verify(friendshipService).sendFriendRequest(userId, dto.getFriendEmail());
     }
 
     @Test

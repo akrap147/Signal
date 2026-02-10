@@ -4,6 +4,7 @@ import { useServerDetails } from '../../hooks/useServerQueries';
 
 import useChatStore from '../../stores/useChatStore';
 import useAuthStore from '../../stores/useAuthStore';
+import FriendsView from '../friends/FriendsView';
 
 const ChatArea = () => {
   const { activeServerId, activeChannelId } = useServerStore();
@@ -18,11 +19,11 @@ const ChatArea = () => {
   // 1. 채널 바뀔 때마다 구독 (Subscribe)
   React.useEffect(() => {
     if (activeChannelId) {
-      // DM인 경우 type='dm'으로 처리해야 함 (추우 구현)
-      // 현재는 일단 모두 CHANNEL로 가정
-      subscribeToChannel(activeChannelId, 'channel');
+      // DM 모드 감지: activeServerId가 'dm'이면 DM, 아니면 CHANNEL
+      const channelType = activeServerId === 'dm' ? 'dm' : 'channel';
+      subscribeToChannel(activeChannelId, channelType);
     }
-  }, [activeChannelId, subscribeToChannel]);
+  }, [activeChannelId, activeServerId, subscribeToChannel]);
   
   // 현재 선택된 채널 이름 찾기
   const currentChannelName = React.useMemo(() => {
@@ -42,7 +43,8 @@ const ChatArea = () => {
       
       e.preventDefault();
       if (inputValue.trim()) {
-        sendMessage(activeChannelId, userId, inputValue); // 전송!
+        const messageType = activeServerId === 'dm' ? 'DM' : 'CHANNEL';
+        sendMessage(activeChannelId, userId, inputValue, messageType); // 전송!
         setInputValue('');
       }
     }
@@ -50,14 +52,32 @@ const ChatArea = () => {
 
   const inviteCode = serverDetails?.inviteCode; // 서버 상세 정보에 inviteCode 등재 가정
 
+  // '@me' 모드일 때만 FriendsView 렌더링 (친구 목록 화면)
+  // 'dm' 모드일 때는 DM 대화창을 표시
+  if (activeServerId === '@me') {
+    return <FriendsView />;
+  }
+
+  // DM 모드인지 확인 (activeServerId가 'dm'이고 activeChannelId가 DM roomId 형태)
+  const isDMMode = activeServerId === 'dm' && activeChannelId;
+  
+  // DM 상대방 정보 추출 (roomId에서 friendId 추출)
+  let dmPartnerName = 'Unknown';
+  if (isDMMode && activeChannelId) {
+    // roomId 형태: "3_5" → userId가 3이거나 5
+    const [id1, id2] = activeChannelId.split('_').map(Number);
+    const friendId = id1 === userId ? id2 : id1;
+    dmPartnerName = `User ${friendId}`; // TODO: 실제 친구 이름으로 변경
+  }
+
   return (
     <main className="chat-workspace">
       <header className="workspace-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
-            {activeServerId === 'dm' ? 'Friends' : `# ${currentChannelName}`}
+            {isDMMode ? `💬 ${dmPartnerName}` : `# ${currentChannelName}`}
           </div>
-          {activeServerId !== 'dm' && inviteCode && (
+          {!isDMMode && inviteCode && (
             <span style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
                   onClick={() => {navigator.clipboard.writeText(inviteCode); alert('Copied!')}}>
               Code: {inviteCode}
@@ -90,14 +110,15 @@ const ChatArea = () => {
           <span style={{ fontSize: '1.2rem', cursor: 'pointer' }}>⊕</span>
           <input 
             type="text" 
-            placeholder={`Message #${currentChannelName}`} 
+            placeholder={isDMMode ? `Message ${dmPartnerName}` : `Message #${currentChannelName}`}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
           />
           <span style={{ cursor: 'pointer' }} onClick={() => {
               if (inputValue.trim()) {
-                  sendMessage(activeChannelId, userId, inputValue);
+                  const messageType = activeServerId === 'dm' ? 'DM' : 'CHANNEL';
+                  sendMessage(activeChannelId, userId, inputValue, messageType);
                   setInputValue('');
               }
           }}>🚀</span>

@@ -5,10 +5,24 @@ import ServerRail from '../components/server/ServerRail';
 import ServerSidebar from '../components/server/ServerSidebar';
 import ChatArea from '../components/chat/ChatArea';
 import useServerStore from '../stores/useServerStore';
+import useChatStore from '../stores/useChatStore';
+import useAuthStore from '../stores/useAuthStore';
 
 export default function MainPage() {
   const { serverId, channelId } = useParams();
   const { setActiveServer, setActiveChannel } = useServerStore();
+  const { connect, disconnect } = useChatStore();
+  const { user } = useAuthStore();
+
+  // WebSocket 연결 (로그인한 사용자)
+  useEffect(() => {
+    if (user?.id) {
+      connect(user.id);
+      
+      // 컴포넌트 언마운트 시 연결 해제
+      return () => disconnect();
+    }
+  }, [user?.id, connect, disconnect]);
 
   // URL Params -> Store Sync
   useEffect(() => {

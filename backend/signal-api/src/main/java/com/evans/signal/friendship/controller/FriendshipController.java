@@ -17,15 +17,11 @@ public class FriendshipController {
 
     private final FriendshipService friendshipService;
 
-    /**
-     * 친구 요청 보내기
-     * POST /api/friends/request
-     */
     @PostMapping("/request")
     public ResponseEntity<FriendshipResponseDto> sendFriendRequest(
             @AuthenticationPrincipal Long userId,
             @RequestBody FriendRequestDto dto) {
-        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, dto.getFriendId());
+        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, dto.getFriendEmail());
         return ResponseEntity.ok(response);
     }
 
