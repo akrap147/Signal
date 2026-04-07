@@ -1,6 +1,6 @@
 package com.evans.signal.user.infrastructure.entity;
 
-import com.evans.signal.common.BaseTimeEntity;
+import com.evans.signal.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,4 +27,6 @@ public class UserEntity extends BaseTimeEntity {
 
     @Column(columnDefinition = "TEXT")
     private String profileImage;
+
+
 }

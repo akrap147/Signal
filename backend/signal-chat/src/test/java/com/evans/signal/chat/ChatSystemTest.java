@@ -108,7 +108,8 @@ public class ChatSystemTest {
     }
 
     private StompSession connect() throws Exception {
-        return stompClient.connectAsync("ws://localhost:" + port + "/ws-stomp", new StompSessionHandlerAdapter() {})
+        return stompClient.connectAsync("ws://localhost:" + port + "/ws-stomp", new StompSessionHandlerAdapter() {
+                })
                 .get(1, TimeUnit.SECONDS);
     }
 }

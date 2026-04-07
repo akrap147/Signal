@@ -13,10 +13,10 @@ public class Member {
     private Long id;
     private Long serverId; // ID 참조
     private Long userId;   // ID 참조
-    private String role;
+    private Role role;
     private LocalDateTime joinedAt;
 
-    public static Member create(Long serverId, Long userId, String role) {
+    public static Member create(Long serverId, Long userId, Role role) {
         return Member.builder()
                 .serverId(serverId)
                 .userId(userId)

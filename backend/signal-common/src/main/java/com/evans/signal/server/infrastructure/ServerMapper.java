@@ -14,7 +14,6 @@ public class ServerMapper {
                 .id(entity.getId())
                 .name(entity.getName())
                 .ownerId(entity.getOwnerId())
-                .inviteCode(entity.getInviteCode())
                 .iconImage(entity.getIconImage())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -27,7 +26,6 @@ public class ServerMapper {
                 .id(domain.getId())
                 .name(domain.getName())
                 .ownerId(domain.getOwnerId())
-                .inviteCode(domain.getInviteCode())
                 .iconImage(domain.getIconImage())
                 .build();
     }

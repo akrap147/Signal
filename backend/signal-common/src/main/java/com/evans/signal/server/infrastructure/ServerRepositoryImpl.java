@@ -6,6 +6,9 @@ import com.evans.signal.server.service.port.ServerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 @RequiredArgsConstructor
 public class ServerRepositoryImpl implements ServerRepository {
@@ -20,20 +23,14 @@ public class ServerRepositoryImpl implements ServerRepository {
     }
 
     @Override
-    public java.util.Optional<Server> findByInviteCode(String inviteCode) {
-        return serverJpaRepository.findByInviteCode(inviteCode)
-                .map(ServerMapper::toDomain);
-    }
-
-    @Override
-    public java.util.List<Server> findAllById(java.util.List<Long> ids) {
+    public List<Server> findAllById(java.util.List<Long> ids) {
         return serverJpaRepository.findAllById(ids).stream()
                 .map(ServerMapper::toDomain)
                 .toList();
     }
 
     @Override
-    public java.util.Optional<Server> findById(Long id) {
+    public Optional<Server> findById(Long id) {
         return serverJpaRepository.findById(id)
                 .map(ServerMapper::toDomain);
     }

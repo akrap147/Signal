@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   /* Modern Slate Theme Colors */
   --bg-darker: #0d0d0d;

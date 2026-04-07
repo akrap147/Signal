@@ -1,6 +1,6 @@
 package com.evans.signal.channel.infrastructure.entity;
 
-import com.evans.signal.common.BaseTimeEntity;
+import com.evans.signal.global.common.BaseTimeEntity;
 
 import jakarta.persistence.*;
 import lombok.*;

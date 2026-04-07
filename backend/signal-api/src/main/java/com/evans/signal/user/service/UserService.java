@@ -1,11 +1,14 @@
 package com.evans.signal.user.service;
 
-import com.evans.signal.global.security.JwtTokenProvider;
+import com.evans.signal.global.exception.CustomException;
 import com.evans.signal.user.domain.User;
-import com.evans.signal.user.dto.LoginResponseDto; // Add import
 import com.evans.signal.user.dto.UserCreateDto;
+import com.evans.signal.user.dto.UserResponseDto;
+import com.evans.signal.user.dto.UserUpdateDto;
+import com.evans.signal.user.exception.UserErrorCode;
 import com.evans.signal.user.service.port.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,26 +17,37 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public Long signup(UserCreateDto dto) {
-        // 1. 도메인 로직을 통해 객체 생성
-        User user = User.create(dto.getEmail(), dto.getPassword(), dto.getUsername());
+    public UserResponseDto signup(UserCreateDto dto) {
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new CustomException(UserErrorCode.EMAIL_DUPLICATION);
+        }
 
-        // 2. 저장
-        return userRepository.save(user).getId();
-    }
-
-    public LoginResponseDto login(String email, String password) {
-        User user = userRepository.findByEmail(email)
-                .filter(u -> u.checkPassword(password))
-                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
-
-        // 2. 토큰 생성 (여기서 username을 넣으면 프론트가 편해집니다)
-        String accessToken = jwtTokenProvider.createToken(user.getId(), user.getUsername());
+        String rawPassword = dto.getPassword();
+        User user = User.create(dto.getEmail(), rawPassword, dto.getUsername(), passwordEncoder);
+        User savedUser = userRepository.save(user);
         
-        // 3. 토큰 + 유저 정보 반환
-        return new LoginResponseDto(accessToken, user.getId(), user.getUsername(), user.getEmail());
+        return UserResponseDto.from(savedUser);
     }
+
+
+    @Transactional
+    public void updateProfile(Long userId, UserUpdateDto dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+
+        user.updateProfile(dto.getUsername(), dto.getProfileImageUrl());
+        userRepository.save(user); // 필수: 도메인 객체이므로 명시적 저장 필요
+    }
+
+    // 내 정보 조회
+    @Transactional(readOnly = true)
+    public UserResponseDto getUserProfile(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
+        return UserResponseDto.from(user);
+    }
+
 }

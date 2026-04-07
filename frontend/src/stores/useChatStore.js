@@ -47,8 +47,8 @@ const useChatStore = create((set, get) => ({
     // 기존 메시지 초기화 (새 방에 들어갔으니)
     set({ messages: [] });
 
-    // 구독 요청: /sub/channel/{id}
-    const topic = type === 'dm' ? `/sub/dm/${channelId}` : `/sub/channel/${channelId}`;
+    // 백엔드에서 모든 메시지를 /topic/channel.{roomId}로 전송하므로 통일
+    const topic = `/topic/channel.${channelId}`;
     
     console.log(`👀 Subscribing to ${topic}`);
 
@@ -71,7 +71,8 @@ const useChatStore = create((set, get) => ({
         type: type, // 'CHANNEL' or 'DM' (Enum 대문자 맞춤)
         roomId: channelId,
         senderId: userId,
-        content: content
+        content: content,
+        ts: Date.now() / 1000.0 // Latency 측정용 timestamp (초 단위)
     };
 
     // 전송 요청: /pub/chat/message (DTO 구조에 맞춤)

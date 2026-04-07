@@ -1,0 +1,75 @@
+package com.evans.signal.chat.controller;
+
+import com.evans.signal.chat.config.RabbitMqConfig;
+import com.evans.signal.chat.dto.ChatMessageDto;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageSendingOperations;
+import org.springframework.stereotype.Controller;
+
+@Controller
+@RequiredArgsConstructor
+@Slf4j
+public class ChatControllerWithBenchmark {
+
+    private final RabbitTemplate rabbitTemplate;
+    private final StringRedisTemplate redisTemplate;
+    private final SimpMessageSendingOperations messagingTemplate;
+
+    /**
+     * 메세지 전송 엔드포인트 (Redis seqId 사용)
+     * 클라이언트 전송 경로: /pub/chat/message
+     */
+    @MessageMapping("/chat/message")
+    public void sendMessage(@Payload ChatMessageDto message) {
+        long startTime = System.nanoTime();
+        
+        // 1. 번호표 뽑기 (Redis Atomic Increment)
+        Long seqId = redisTemplate.opsForValue().increment("room:" + message.getRoomId() + ":seq");
+        ChatMessageDto finalMessage = message.toBuilder().seqId(seqId).build();
+
+        long redisTime = System.nanoTime() - startTime;
+        
+        // 2. 실시간 전송 (현재 서버 접속자 대상)
+        messagingTemplate.convertAndSend("/topic/channel." + message.getRoomId(), finalMessage);
+
+        // 3. DB 저장은 나중에 천천히 (RabbitMQ행)
+        rabbitTemplate.convertAndSend(RabbitMqConfig.DB_EXCHANGE_NAME, RabbitMqConfig.DB_ROUTING_KEY, finalMessage);
+        
+        long totalTime = System.nanoTime() - startTime;
+        
+        // 성능 로그 (마이크로초 단위)
+        if (log.isDebugEnabled()) {
+            log.debug("Message processed - Redis: {}μs, Total: {}μs", 
+                redisTime / 1000, totalTime / 1000);
+        }
+    }
+    
+    /**
+     * 메세지 전송 엔드포인트 (Redis 없이 - 비교용)
+     * 클라이언트 전송 경로: /pub/chat/message-no-redis
+     */
+    @MessageMapping("/chat/message-no-redis")
+    public void sendMessageNoRedis(@Payload ChatMessageDto message) {
+        long startTime = System.nanoTime();
+        
+        // seqId 없이 전송 (DB AUTO_INCREMENT에만 의존)
+        ChatMessageDto finalMessage = message.toBuilder().seqId(null).build();
+
+        // 실시간 전송
+        messagingTemplate.convertAndSend("/topic/channel." + message.getRoomId(), finalMessage);
+
+        // DB 저장 (seqId는 DB에서 자동 생성)
+        rabbitTemplate.convertAndSend(RabbitMqConfig.DB_EXCHANGE_NAME, RabbitMqConfig.DB_ROUTING_KEY, finalMessage);
+        
+        long totalTime = System.nanoTime() - startTime;
+        
+        if (log.isDebugEnabled()) {
+            log.debug("Message processed (No Redis) - Total: {}μs", totalTime / 1000);
+        }
+    }
+}

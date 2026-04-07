@@ -1,20 +1,20 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 
-// persist 미들웨어를 사용해 새로고침해도 로그인 유지 (localStorage 저장)
 const useAuthStore = create(
   persist(
     (set) => ({
-      userId: null,
-      username: null,
-      isAuthenticated: false,
+      accessToken: null,
+      user: null, // { id, email, username, ... }
 
-      // Actions
-      login: (userId, username) => set({ userId, username, isAuthenticated: true }),
-      logout: () => set({ userId: null, username: null, isAuthenticated: false }),
+      setAccessToken: (token) => set({ accessToken: token }),
+      setUser: (user) => set({ user }),
+      
+      logout: () => set({ accessToken: null, user: null }),
     }),
     {
-      name: 'auth-storage', // localStorage key
+      name: 'auth-storage', // local storage key
+      storage: createJSONStorage(() => localStorage),
     }
   )
 );

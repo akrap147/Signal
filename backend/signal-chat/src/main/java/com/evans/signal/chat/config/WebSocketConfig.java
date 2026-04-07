@@ -41,8 +41,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void configureMessageBroker(MessageBrokerRegistry registry) {
 
         if (useRabbitMq) {
-            // 기존 내장 브로커(SimpleBroker) 대신 외부 브로커(RabbitMQ) 사용
-            // RabbitMQ STOMP는 /topic (pub/sub), /queue (p2p), /exchange (routing) 등을 지원함
             registry.enableStompBrokerRelay("/topic", "/queue", "/exchange", "/amq/queue")
                     .setRelayHost(relayHost)
                     .setRelayPort(relayPort)
