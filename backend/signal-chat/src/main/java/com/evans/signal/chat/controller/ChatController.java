@@ -20,6 +20,8 @@ public class ChatController {
     private final StringRedisTemplate redisTemplate;
     private final SimpMessageSendingOperations messagingTemplate;
 
+
+
     /**
      * 메세지 전송 엔드포인트
      * 클라이언트 전송 경로: /pub/chat/message
