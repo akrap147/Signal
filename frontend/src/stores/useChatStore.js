@@ -44,11 +44,8 @@ const useChatStore = create((set, get) => ({
     const { client } = get();
     if (!client || !client.active) return;
 
-    // 기존 메시지 초기화 (새 방에 들어갔으니)
-    set({ messages: [] });
-
     // 구독 요청: /sub/channel/{id}
-    const topic = type === 'dm' ? `/sub/dm/${channelId}` : `/sub/channel/${channelId}`;
+    const topic = `/topic/channel.${channelId}`;
     
     console.log(`👀 Subscribing to ${topic}`);
 
@@ -63,14 +60,15 @@ const useChatStore = create((set, get) => ({
   },
 
   // 4. 메시지 전송
-  sendMessage: (channelId, userId, content, type = 'CHANNEL') => {
+  sendMessage: (channelId, userId, senderName, content, type = 'CHANNEL') => {
     const { client } = get();
     if (!client || !client.active) return;
 
     const payload = {
-        type: type, // 'CHANNEL' or 'DM' (Enum 대문자 맞춤)
+        type: type,
         roomId: channelId,
         senderId: userId,
+        senderName: senderName,
         content: content
     };
 

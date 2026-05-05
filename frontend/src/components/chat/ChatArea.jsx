@@ -5,6 +5,7 @@ import { useServerDetails } from '../../hooks/useServerQueries';
 import useChatStore from '../../stores/useChatStore';
 import useAuthStore from '../../stores/useAuthStore';
 import { channelApi } from '../../api/channel';
+import FriendsArea from '../friends/FriendsArea';
 
 function formatTimestamp(ts, createdAt) {
   const date = ts ? new Date(ts) : createdAt ? new Date(createdAt) : null;
@@ -18,33 +19,45 @@ function formatTimestamp(ts, createdAt) {
 }
 
 const ChatArea = () => {
-  const { activeServerId, activeChannelId } = useServerStore();
+  const { activeServerId, activeChannelId, dmChannels } = useServerStore();
   const { data: serverDetails } = useServerDetails(activeServerId);
   const { user } = useAuthStore();
-  const userId = user?.id; // 식별자
-  const username = user?.username || user?.email || 'Unknown'; // 표시용 Names
-  
-  const { messages, sendMessage, subscribeToChannel } = useChatStore();
+  const { messages, sendMessage, subscribeToChannel, isConnected } = useChatStore();
   const [inputValue, setInputValue] = React.useState('');
+
+  const userId = user?.id;
+  const username = user?.username || user?.email || 'Unknown';
+
+  const isDmMode = activeServerId === 'dm' || activeServerId === '@me';
+  const showFriends = isDmMode && !activeChannelId;
 
   // 1. 채널 바뀔 때마다 구독 + 히스토리 로드
   React.useEffect(() => {
-    if (!activeChannelId) return;
+    if (!activeChannelId || !isConnected) return;
 
+    // 초기화 후 구독 시작 (실시간 메시지는 여기서부터 쌓임)
+    useChatStore.setState({ messages: [] });
     subscribeToChannel(activeChannelId, 'channel');
 
+    // 히스토리 로드 후, 구독 중 도착한 실시간 메시지와 merge
     channelApi.getChannelMessages(activeChannelId).then((history) => {
-      useChatStore.setState({ messages: history });
+      useChatStore.setState((state) => {
+        const historySeqIds = new Set(history.map((m) => m.seqId));
+        const realtime = state.messages.filter((m) => !historySeqIds.has(m.seqId));
+        return { messages: [...history, ...realtime] };
+      });
     }).catch(() => {});
-  }, [activeChannelId, subscribeToChannel]);
+  }, [activeChannelId, isConnected, subscribeToChannel]);
   
   // 현재 선택된 채널 이름 찾기
   const currentChannelName = React.useMemo(() => {
-    if (activeServerId === 'dm') return 'Friend';
+    if (activeServerId === '@me' || activeServerId === 'dm') {
+      return dmChannels.find((dm) => dm.channelId === activeChannelId)?.friendName || 'DM';
+    }
     if (!serverDetails) return '...';
     const allChannels = serverDetails.categories.flatMap(c => c.channels);
     return allChannels.find(ch => ch.id === activeChannelId)?.name || 'Select Channel';
-  }, [activeServerId, serverDetails, activeChannelId]);
+  }, [activeServerId, serverDetails, activeChannelId, dmChannels]);
 
   // 2. 메시지 전송 (엔터 키)
   const handleKeyDown = (e) => {
@@ -56,20 +69,22 @@ const ChatArea = () => {
       
       e.preventDefault();
       if (inputValue.trim()) {
-        sendMessage(activeChannelId, userId, inputValue); // 전송!
+        sendMessage(activeChannelId, userId, username, inputValue); // 전송!
         setInputValue('');
       }
     }
   };
 
-  const inviteCode = serverDetails?.inviteCode; // 서버 상세 정보에 inviteCode 등재 가정
+  const inviteCode = serverDetails?.inviteCode;
+
+  if (showFriends) return <FriendsArea />;
 
   return (
     <main className="chat-workspace">
       <header className="workspace-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
-            {activeServerId === 'dm' ? 'Friends' : `# ${currentChannelName}`}
+            {(activeServerId === '@me' || activeServerId === 'dm') ? `@ ${currentChannelName}` : `# ${currentChannelName}`}
           </div>
           {activeServerId !== 'dm' && inviteCode && (
             <span style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
@@ -110,7 +125,7 @@ const ChatArea = () => {
           />
           <span style={{ cursor: 'pointer' }} onClick={() => {
               if (inputValue.trim()) {
-                  sendMessage(activeChannelId, userId, inputValue);
+                  sendMessage(activeChannelId, userId, username, inputValue);
                   setInputValue('');
               }
           }}>🚀</span>

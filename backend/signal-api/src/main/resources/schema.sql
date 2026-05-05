@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
     id            BIGSERIAL    PRIMARY KEY,
     email         VARCHAR(255) NOT NULL,
     password      VARCHAR(255) NOT NULL,
-    username      VARCHAR(50)  NOT NULL,
+    user_name      VARCHAR(50)  NOT NULL,
     profile_image TEXT         NULL,
     created_at    TIMESTAMP    NULL,
     updated_at    TIMESTAMP    NULL
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS channels (
     id            BIGSERIAL    PRIMARY KEY,
     category_id   BIGINT       NULL,
-    server_id     BIGINT       NOT NULL,
+    server_id     BIGINT       NULL,
     name          VARCHAR(100) NOT NULL,
     type          VARCHAR(20)  NULL DEFAULT 'TEXT',
     display_order INT          NULL,
@@ -73,12 +73,25 @@ CREATE INDEX IF NOT EXISTS idx_chat_message_room_id   ON chat_message (room_id);
 CREATE INDEX IF NOT EXISTS idx_chat_message_created_at ON chat_message (created_at);
 CREATE INDEX IF NOT EXISTS idx_chat_message_room_seq  ON chat_message (room_id, seq_id);
 
+-- DM Rooms Table
+CREATE TABLE IF NOT EXISTS dm_rooms (
+    id         BIGSERIAL PRIMARY KEY,
+    user1_id   BIGINT NOT NULL,
+    user2_id   BIGINT NOT NULL,
+    channel_id BIGINT NOT NULL,
+    CONSTRAINT unique_dm_room UNIQUE (user1_id, user2_id),
+    CONSTRAINT fk_dm_channel FOREIGN KEY (channel_id) REFERENCES channels (id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dm_rooms_user1 ON dm_rooms (user1_id);
+CREATE INDEX IF NOT EXISTS idx_dm_rooms_user2 ON dm_rooms (user2_id);
+
 -- Friendships Table
 CREATE TABLE IF NOT EXISTS friendships (
     id         BIGSERIAL   PRIMARY KEY,
     user_id    BIGINT      NOT NULL,
     friend_id  BIGINT      NOT NULL,
-    status     VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'blocked')),
+    status     VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'ACCEPTED', 'BLOCKED')),
     created_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP   DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_friendship    UNIQUE (user_id, friend_id),

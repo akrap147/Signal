@@ -8,5 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FriendRequestDto {
-    private Long friendId; // 친구 요청을 보낼 대상의 ID
+    private String friendName; // 친구 요청을 보낼 대상의 ID
 }

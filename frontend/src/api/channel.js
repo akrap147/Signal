@@ -1,8 +1,19 @@
 import client from './client';
 
+export const dmApi = {
+  getOrCreateDmChannel: async (friendId) => {
+    const response = await client.post('/dm', null, { params: { friendId } });
+    return response.data;
+  },
+  getMyDmChannels: async () => {
+    const response = await client.get('/dm');
+    return response.data;
+  },
+};
+
 export const channelApi = {
   getChannelMessages: async (channelId) => {
-    const response = await client.get(`/channels/${channelId}/messages`);
+    const response = await client.get(`/chat/${channelId}/messages`);
     return response.data;
   },
   createChannel: async (serverId, categoryId, name, type = 'TEXT') => {

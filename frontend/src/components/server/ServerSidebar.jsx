@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import useServerStore from '../../stores/useServerStore';
-import useAuthStore from '../../stores/useAuthStore'; // Add Import
+import useAuthStore from '../../stores/useAuthStore';
 import { useServerDetails } from '../../hooks/useServerQueries';
-import { useQueryClient } from '@tanstack/react-query'; // Add Import
+import { useQueryClient } from '@tanstack/react-query';
 import clsx from 'clsx';
 import CreateChannelModal from '../modals/CreateChannelModal';
+import { friendApi } from '../../api/friend';
+import { dmApi } from '../../api/channel';
 
 const ServerSidebar = () => {
   const { activeServerId, activeChannelId, setActiveChannel } = useServerStore();
@@ -31,57 +33,7 @@ const ServerSidebar = () => {
 
   // DM / Friends View
   if (activeServerId === 'dm' || activeServerId === '@me') {
-    // 추후 API 연동 시 이 배열들을 채우게 됨
-    const friends = []; 
-    const directMessages = []; 
-
-    return (
-      <aside className="sidebar">
-        <div className="sidebar-panel">
-          <header className="sidebar-header">
-             <button 
-               className="w-full text-left bg-zinc-900 text-zinc-400 text-sm px-2 py-1 rounded"
-               onClick={() => alert('친구 검색 기능 구현 예정')}
-             >
-               Find or start a conversation
-             </button>
-          </header>
-          <div className="sidebar-list">
-             {/* Friends Tab */}
-             <div className={clsx('sidebar-item active')}>
-                <span className="mr-2">👋</span> Friends
-             </div>
-             
-             {/* DM Header */}
-             <div className="flex justify-between items-center mt-4 px-2 mb-1">
-                <span className="text-xs font-bold text-zinc-400 uppercase">Direct Messages</span>
-                {/* DM 생성 버튼 */}
-                <span 
-                  className="cursor-pointer text-zinc-400 hover:text-white"
-                  onClick={() => alert('DM 생성 기능 구현 예정')}
-                >
-                  +
-                </span>
-             </div>
-
-             {/* DM List */}
-             {directMessages.length > 0 ? (
-               directMessages.map(dm => (
-                 <div key={dm.id} className="sidebar-item">
-                   {/* DM Item UI */}
-                   {dm.name}
-                 </div>
-               ))
-             ) : (
-               <div className="px-3 py-2 text-zinc-500 text-sm italic">
-                 친구를 추가하고 대화를 시작해보세요!
-               </div>
-             )}
-          </div>
-        </div>
-        <UserPanel />
-      </aside>
-    );
+    return <FriendsSidebar />;
   }
 
   if (isLoading) return <aside className="sidebar">Loading Channels...</aside>;
@@ -131,6 +83,55 @@ const ServerSidebar = () => {
         />
       )}
     </>
+  );
+};
+
+// DM 모드 사이드바
+const FriendsSidebar = () => {
+  const { activeChannelId, setActiveChannel, dmChannels, setDmChannels } = useServerStore();
+  const [receivedCount, setReceivedCount] = useState(0);
+
+  useEffect(() => {
+    Promise.all([friendApi.getReceivedRequests(), dmApi.getMyDmChannels()])
+      .then(([r, dms]) => { setReceivedCount(r.length); setDmChannels(dms); })
+      .catch(() => {});
+  }, [setDmChannels]);
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-panel">
+        <header className="sidebar-header">다이렉트 메시지</header>
+        <div className="sidebar-list">
+          <div
+            className={clsx('sidebar-item', { active: !activeChannelId })}
+            onClick={() => setActiveChannel(null)}
+          >
+            <span style={{ marginRight: '8px' }}>👋</span> 친구
+            {receivedCount > 0 && (
+              <span style={{ marginLeft: 'auto', background: '#ed4245', color: 'white', borderRadius: '10px', padding: '1px 6px', fontSize: '0.75rem' }}>
+                {receivedCount}
+              </span>
+            )}
+          </div>
+          {dmChannels.length > 0 && (
+            <div style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', marginTop: '8px' }}>
+              다이렉트 메시지
+            </div>
+          )}
+          {dmChannels.map((dm) => (
+            <div
+              key={dm.channelId}
+              className={clsx('sidebar-item', { active: activeChannelId === dm.channelId })}
+              onClick={() => setActiveChannel(dm.channelId)}
+            >
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#5865f2', marginRight: '8px', flexShrink: 0 }} />
+              {dm.friendName}
+            </div>
+          ))}
+        </div>
+      </div>
+      <UserPanel />
+    </aside>
   );
 };
 

@@ -17,22 +17,14 @@ public class FriendshipController {
 
     private final FriendshipService friendshipService;
 
-    /**
-     * 친구 요청 보내기
-     * POST /api/friends/request
-     */
     @PostMapping("/request")
     public ResponseEntity<FriendshipResponseDto> sendFriendRequest(
             @AuthenticationPrincipal Long userId,
             @RequestBody FriendRequestDto dto) {
-        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, dto.getFriendId());
+        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, dto.getFriendName());
         return ResponseEntity.ok(response);
     }
 
-    /**
-     * 친구 요청 수락
-     * POST /api/friends/accept/{requesterId}
-     */
     @PostMapping("/accept/{requesterId}")
     public ResponseEntity<Void> acceptFriendRequest(
             @AuthenticationPrincipal Long userId,
@@ -41,10 +33,8 @@ public class FriendshipController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 친구 요청 거절 또는 친구 삭제
-     * DELETE /api/friends/{friendId}
-     */
+
+    // todo: friendId -> friendName
     @DeleteMapping("/{friendId}")
     public ResponseEntity<Void> removeFriendship(
             @AuthenticationPrincipal Long userId,
@@ -53,10 +43,6 @@ public class FriendshipController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 내 친구 목록 조회 (accepted 상태)
-     * GET /api/friends
-     */
     @GetMapping
     public ResponseEntity<List<FriendshipResponseDto>> getMyFriends(
             @AuthenticationPrincipal Long userId) {
@@ -64,10 +50,6 @@ public class FriendshipController {
         return ResponseEntity.ok(friends);
     }
 
-    /**
-     * 내가 보낸 친구 요청 목록 조회 (pending 상태)
-     * GET /api/friends/sent-requests
-     */
     @GetMapping("/sent-requests")
     public ResponseEntity<List<FriendshipResponseDto>> getMySentRequests(
             @AuthenticationPrincipal Long userId) {
@@ -75,10 +57,6 @@ public class FriendshipController {
         return ResponseEntity.ok(requests);
     }
 
-    /**
-     * 내가 받은 친구 요청 목록 조회 (pending 상태)
-     * GET /api/friends/received-requests
-     */
     @GetMapping("/received-requests")
     public ResponseEntity<List<FriendshipResponseDto>> getMyReceivedRequests(
             @AuthenticationPrincipal Long userId) {

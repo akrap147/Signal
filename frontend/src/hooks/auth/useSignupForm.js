@@ -9,7 +9,7 @@ import { authApi } from '../../api/auth';
 const signupSchema = z.object({
   email: z.string().email("이메일 형식이 올바르지 않습니다."),
   username: z.string().min(2, "사용자 이름은 2글자 이상이어야 합니다."),
-  password: z.string().min(6, "비밀번호는 6글자 이상이어야 합니다."),
+  password: z.string().min(8, "비밀번호는 8글자 이상이어야 합니다."),
 });
 
 export const useSignupForm = () => {

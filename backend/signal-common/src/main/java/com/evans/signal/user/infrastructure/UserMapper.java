@@ -11,7 +11,7 @@ public class UserMapper {
                 .id(entity.getId())
                 .email(entity.getEmail())
                 .password(entity.getPassword())
-                .username(entity.getUsername())
+                .username(entity.getUserName())
                 .profileImage(entity.getProfileImage())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -24,7 +24,7 @@ public class UserMapper {
                 .id(domain.getId())
                 .email(domain.getEmail())
                 .password(domain.getPassword())
-                .username(domain.getUsername())
+                .userName(domain.getUsername())
                 .profileImage(domain.getProfileImage())
                 .build();
     }

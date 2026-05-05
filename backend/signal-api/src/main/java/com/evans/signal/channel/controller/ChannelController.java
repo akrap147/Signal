@@ -13,7 +13,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/channels")
 @RequiredArgsConstructor
-@Tag(name = "Channel API", description = "Manage channels within categories")
+@Tag(name = "Channel API", description = "채널 관리")
 public class ChannelController {
 
     private final ChannelService channelService;

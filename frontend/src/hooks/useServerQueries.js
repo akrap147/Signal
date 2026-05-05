@@ -21,7 +21,7 @@ export const useServerDetails = (serverId) => {
     queryFn: async () => {
       return await serverApi.getServerDetails(serverId);
     },
-    enabled: !!serverId && serverId !== 'dm',
+    enabled: !!serverId && serverId !== 'dm' && serverId !== '@me',
     staleTime: 1000 * 60,
   });
 };
