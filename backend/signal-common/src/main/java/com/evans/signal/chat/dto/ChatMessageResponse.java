@@ -13,5 +13,6 @@ public class ChatMessageResponse {
     private Long senderId;
     private Long seqId;
     private String content;
+    private String senderName;
     private LocalDateTime createdAt;
 }

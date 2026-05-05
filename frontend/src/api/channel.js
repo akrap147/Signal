@@ -1,6 +1,10 @@
 import client from './client';
 
 export const channelApi = {
+  getChannelMessages: async (channelId) => {
+    const response = await client.get(`/channels/${channelId}/messages`);
+    return response.data;
+  },
   createChannel: async (serverId, categoryId, name, type = 'TEXT') => {
     // request: { serverId, categoryId, name, type }
     const response = await client.post('/channels', { serverId, categoryId, name, type });

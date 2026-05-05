@@ -22,6 +22,7 @@ public class MessageService {
                         .senderId(message.getSenderId())
                         .seqId(message.getSeqId())
                         .content(message.getContent())
+                        .senderName(message.getSenderName())
                         .createdAt(message.getCreatedAt())
                         .build())
                 .toList();

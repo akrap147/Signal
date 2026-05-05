@@ -3,6 +3,7 @@ package com.evans.signal.chat.domain;
 import com.evans.signal.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Table(name = "chat_message")
+@Builder
 public class ChatMessage extends BaseTimeEntity {
 
     @Id
@@ -29,11 +32,7 @@ public class ChatMessage extends BaseTimeEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Builder
-    public ChatMessage(Long roomId, Long senderId, String content, Long seqId) {
-        this.roomId = roomId;
-        this.senderId = senderId;
-        this.content = content;
-        this.seqId = seqId;
-    }
+    @Column(nullable = false)
+    private String senderName;
+
 }

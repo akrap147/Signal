@@ -28,6 +28,7 @@ public class DbConsumer {
         chatMessageRepository.save(ChatMessage.builder()
                 .roomId(message.getRoomId())
                 .senderId(message.getSenderId())
+                .senderName(message.getSenderName())
                 .content(message.getContent())
                 .seqId(message.getSeqId())
                 .build());

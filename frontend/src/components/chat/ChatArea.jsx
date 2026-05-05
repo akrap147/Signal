@@ -4,6 +4,18 @@ import { useServerDetails } from '../../hooks/useServerQueries';
 
 import useChatStore from '../../stores/useChatStore';
 import useAuthStore from '../../stores/useAuthStore';
+import { channelApi } from '../../api/channel';
+
+function formatTimestamp(ts, createdAt) {
+  const date = ts ? new Date(ts) : createdAt ? new Date(createdAt) : null;
+  if (!date) return '';
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  if (isToday) return `${hh}:${mm}`;
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${hh}:${mm}`;
+}
 
 const ChatArea = () => {
   const { activeServerId, activeChannelId } = useServerStore();
@@ -15,13 +27,15 @@ const ChatArea = () => {
   const { messages, sendMessage, subscribeToChannel } = useChatStore();
   const [inputValue, setInputValue] = React.useState('');
 
-  // 1. 채널 바뀔 때마다 구독 (Subscribe)
+  // 1. 채널 바뀔 때마다 구독 + 히스토리 로드
   React.useEffect(() => {
-    if (activeChannelId) {
-      // DM인 경우 type='dm'으로 처리해야 함 (추우 구현)
-      // 현재는 일단 모두 CHANNEL로 가정
-      subscribeToChannel(activeChannelId, 'channel');
-    }
+    if (!activeChannelId) return;
+
+    subscribeToChannel(activeChannelId, 'channel');
+
+    channelApi.getChannelMessages(activeChannelId).then((history) => {
+      useChatStore.setState({ messages: history });
+    }).catch(() => {});
   }, [activeChannelId, subscribeToChannel]);
   
   // 현재 선택된 채널 이름 찾기
@@ -73,9 +87,8 @@ const ChatArea = () => {
           return (
             <div key={index} className={`message-bubble ${isMine ? 'mine' : ''}`}>
               <div className="message-info">
-                <strong>{msg.senderId}</strong> 
-                {/* 시간 정보가 아직 없으므로 생략하거나 msg.createdAt 추가 필요 */}
-                <span>Now</span> 
+                <strong>{msg.senderName ?? msg.senderId}</strong>
+                <span>{formatTimestamp(msg.ts, msg.createdAt)}</span>
               </div>
               <div className="message-text">
                 {msg.content}
