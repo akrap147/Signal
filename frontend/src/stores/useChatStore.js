@@ -49,10 +49,8 @@ const useChatStore = create((set, get) => ({
     
     console.log(`👀 Subscribing to ${topic}`);
 
-    client.subscribe(topic, (message) => {
+    return client.subscribe(topic, (message) => {
       const receivedMsg = JSON.parse(message.body);
-      
-      // 상태 업데이트: 기존 메시지 리스트 뒤에 새 메시지 추가
       set((state) => ({
         messages: [...state.messages, receivedMsg],
       }));

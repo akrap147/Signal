@@ -5,13 +5,15 @@ import useAuthStore from '../../stores/useAuthStore';
 import { useMyServers } from '../../hooks/useServerQueries';
 import clsx from 'clsx';
 import CreateServerModal from '../modals/CreateServerModal';
+import JoinServerModal from '../modals/JoinServerModal';
 
 const ServerRail = () => {
-  const { activeServerId } = useServerStore(); // Store는 읽기 전용으로만 사용 (UI Highlight용)
+  const { activeServerId } = useServerStore();
   const { user } = useAuthStore();
   const userId = user?.id;
   const { data: servers, isLoading } = useMyServers(userId);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const navigate = useNavigate();
 
   if (isLoading) return <nav className="top-nav">Loading...</nav>;
@@ -41,18 +43,30 @@ const ServerRail = () => {
           ))}
           
           {/* Create Server Button */}
-          <div 
+          <div
             className="server-tab create-btn"
             onClick={() => setIsModalOpen(true)}
             style={{ color: 'var(--primary-color)', borderColor: 'var(--primary-color)' }}
+            title="서버 만들기"
           >
             +
+          </div>
+
+          {/* Join Server Button */}
+          <div
+            className="server-tab create-btn"
+            onClick={() => setIsJoinModalOpen(true)}
+            style={{ color: '#3ba55d', borderColor: '#3ba55d' }}
+            title="서버 참여하기"
+          >
+            ↩
           </div>
         </div>
         <div className="user-controls" style={{ color: 'var(--text-muted)' }}>🔍 Search</div>
       </nav>
 
       {isModalOpen && <CreateServerModal onClose={() => setIsModalOpen(false)} />}
+      {isJoinModalOpen && <JoinServerModal onClose={() => setIsJoinModalOpen(false)} />}
     </>
   );
 };

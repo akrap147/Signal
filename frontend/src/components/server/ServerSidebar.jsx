@@ -7,14 +7,31 @@ import clsx from 'clsx';
 import CreateChannelModal from '../modals/CreateChannelModal';
 import { friendApi } from '../../api/friend';
 import { dmApi } from '../../api/channel';
+import { serverApi } from '../../api/server';
 
 const ServerSidebar = () => {
   const { activeServerId, activeChannelId, setActiveChannel } = useServerStore();
+  const { user } = useAuthStore();
   const { data: serverDetails, isLoading, error } = useServerDetails(activeServerId);
-  
+
   // Modal State
   const [isChannelModalOpen, setIsChannelModalOpen] = useState(false);
   const [targetCategoryId, setTargetCategoryId] = useState(null);
+  const [toast, setToast] = useState(null); // { code, error }
+
+  const isOwner = serverDetails?.ownerId === user?.id;
+
+  const handleCopyInvite = async () => {
+    try {
+      const { inviteCode } = await serverApi.createInviteCode(activeServerId);
+      await navigator.clipboard.writeText(inviteCode);
+      setToast({ code: inviteCode });
+      setTimeout(() => setToast(null), 3000);
+    } catch {
+      setToast({ error: true });
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
 
   // 서버가 바뀌어서 데이터가 로드되면 첫 번째 채널 자동 선택
   useEffect(() => {
@@ -41,10 +58,41 @@ const ServerSidebar = () => {
 
   return (
     <>
+      {/* 토스트 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+          background: toast.error ? '#ed4245' : '#23272a',
+          color: 'white', borderRadius: '8px', padding: '12px 20px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', gap: '12px',
+          zIndex: 9999, animation: 'fadeIn 0.2s ease',
+        }}>
+          {toast.error ? (
+            <span>초대 코드 생성에 실패했습니다.</span>
+          ) : (
+            <>
+              <span style={{ fontSize: '1.1rem' }}>✅</span>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>초대 코드가 복사됐습니다!</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '1rem', color: '#5865f2', marginTop: '2px' }}>{toast.code}</div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <aside className="sidebar">
         <div className="sidebar-panel">
-          <header className="sidebar-header">
-            {serverDetails?.name || 'Server'}
+          <header className="sidebar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{serverDetails?.name || 'Server'}</span>
+            {isOwner && (
+              <button
+                onClick={handleCopyInvite}
+                style={{ background: '#5865f2', border: 'none', color: 'white', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, padding: '3px 10px', borderRadius: '4px' }}
+              >
+                초대
+              </button>
+            )}
           </header>
 
           <div className="sidebar-list">
@@ -135,37 +183,66 @@ const FriendsSidebar = () => {
   );
 };
 
+// 로그아웃 확인 모달
+const LogoutModal = ({ onConfirm, onCancel }) => (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onCancel}>
+    <div className="bg-zinc-800 p-6 rounded-lg shadow-xl w-80 text-white" onClick={(e) => e.stopPropagation()}>
+      <h2 className="text-lg font-bold mb-2">로그아웃</h2>
+      <p className="text-zinc-400 text-sm mb-6">정말 로그아웃 하시겠어요?</p>
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-300 transition-colors"
+        >
+          취소
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-4 py-2 text-sm rounded bg-red-600 hover:bg-red-500 text-white font-semibold transition-colors"
+        >
+          로그아웃
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // 하단 유저 프로필 컴포넌트
 const UserPanel = () => {
-  const { user, logout } = useAuthStore(); // username -> user 객체로 변경
+  const { user, logout } = useAuthStore();
   const queryClient = useQueryClient();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // 안전하게 username 접근
   const displayedName = user?.username || user?.email || 'Unknown User';
 
-  const handleLogout = () => {
-      // 로그아웃 시 확인
-      if (window.confirm("Are you sure you want to log out?")) {
-          logout();
-          queryClient.clear(); // 모든 캐시 데이터 초기화 (다시 로그인 시 꼬이지 않도록)
-      }
+  const handleConfirmLogout = () => {
+    logout();
+    queryClient.clear();
   };
 
   return (
-    <div className="user-card">
-      <div className="user-avatar" />
-      <div style={{ flex: 1, overflow: 'hidden' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{displayedName}</div>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Online</div>
+    <>
+      <div className="user-card">
+        <div className="user-avatar" />
+        <div style={{ flex: 1, overflow: 'hidden' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{displayedName}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Online</div>
+        </div>
+        <button
+          onClick={() => setShowLogoutModal(true)}
+          className="px-3 py-1 text-xs rounded bg-zinc-700 hover:bg-red-600 text-zinc-300 hover:text-white font-semibold transition-colors"
+        >
+          로그아웃
+        </button>
       </div>
-      <div 
-        style={{ fontSize: '1.2rem', cursor: 'pointer' }}
-        onClick={handleLogout}
-        title="Settings / Logout"
-      >
-        ⚙️
-      </div>
-    </div>
+
+      {showLogoutModal && (
+        <LogoutModal
+          onConfirm={handleConfirmLogout}
+          onCancel={() => setShowLogoutModal(false)}
+        />
+      )}
+    </>
   );
 };
 

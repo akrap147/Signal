@@ -92,6 +92,7 @@ public class ServerService {
 
         // 2. 1시간 만료 조건으로 초대 코드 생성 및 저장 (Redis)
         // 1시간 = 3600초
+        // todo : 초대 시간이 hardCoding으로 되어있는 단점.
         return inviteService.createInvite(serverId, userId, 3600L);
     }
 

@@ -24,6 +24,7 @@ const ChatArea = () => {
   const { user } = useAuthStore();
   const { messages, sendMessage, subscribeToChannel, isConnected } = useChatStore();
   const [inputValue, setInputValue] = React.useState('');
+  const bottomRef = React.useRef(null);
 
   const userId = user?.id;
   const username = user?.username || user?.email || 'Unknown';
@@ -35,11 +36,9 @@ const ChatArea = () => {
   React.useEffect(() => {
     if (!activeChannelId || !isConnected) return;
 
-    // 초기화 후 구독 시작 (실시간 메시지는 여기서부터 쌓임)
     useChatStore.setState({ messages: [] });
-    subscribeToChannel(activeChannelId, 'channel');
+    const subscription = subscribeToChannel(activeChannelId, 'channel');
 
-    // 히스토리 로드 후, 구독 중 도착한 실시간 메시지와 merge
     channelApi.getChannelMessages(activeChannelId).then((history) => {
       useChatStore.setState((state) => {
         const historySeqIds = new Set(history.map((m) => m.seqId));
@@ -47,6 +46,8 @@ const ChatArea = () => {
         return { messages: [...history, ...realtime] };
       });
     }).catch(() => {});
+
+    return () => subscription?.unsubscribe();
   }, [activeChannelId, isConnected, subscribeToChannel]);
   
   // 현재 선택된 채널 이름 찾기
@@ -75,6 +76,10 @@ const ChatArea = () => {
     }
   };
 
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
   const inviteCode = serverDetails?.inviteCode;
 
   if (showFriends) return <FriendsArea />;
@@ -98,6 +103,7 @@ const ChatArea = () => {
 
       <div className="messages-container">
         {messages.map((msg, index) => {
+
           const isMine = msg.senderId === userId;
           return (
             <div key={index} className={`message-bubble ${isMine ? 'mine' : ''}`}>
@@ -111,6 +117,7 @@ const ChatArea = () => {
             </div>
           );
         })}
+        <div ref={bottomRef} />
       </div>
 
       <footer className="input-section">
