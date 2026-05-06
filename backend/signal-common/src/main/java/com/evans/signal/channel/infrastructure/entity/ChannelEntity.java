@@ -20,10 +20,10 @@ public class ChannelEntity extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "category_id", nullable = false)
+    @Column(name = "category_id")
     private Long categoryId;
 
-    @Column(name = "server_id", nullable = false)
+    @Column(name = "server_id")
     private Long serverId;
 
     @Column(nullable = false, length = 100)

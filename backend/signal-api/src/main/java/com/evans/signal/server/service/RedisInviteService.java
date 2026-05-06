@@ -38,7 +38,7 @@ public class RedisInviteService implements InviteService {
         // 3. Redis 저장 (초대 코드 조회용 + 중복 생성 방지용)
         ops.set(inviteKey, String.valueOf(serverId), ttlSeconds, TimeUnit.SECONDS);
         ops.set(activeInviteKey, inviteCode, ttlSeconds, TimeUnit.SECONDS);
-
+        
         return inviteCode;
     }
 

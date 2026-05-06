@@ -23,7 +23,7 @@ public class UserEntity extends BaseTimeEntity {
     private String password;
 
     @Column(nullable = false, length = 50)
-    private String username;
+    private String userName;
 
     @Column(columnDefinition = "TEXT")
     private String profileImage;

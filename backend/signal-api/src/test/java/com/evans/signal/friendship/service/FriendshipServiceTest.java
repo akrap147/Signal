@@ -44,10 +44,12 @@ class FriendshipServiceTest {
         // given
         Long userId = 1L;
         Long friendId = 2L;
+        String friendName = "jongwon";
+
         User friend = User.builder()
                 .id(friendId)
                 .email("friend@example.com")
-                .username("friend")
+                .username(friendName)
                 .build();
 
         Friendship savedFriendship = Friendship.builder()
@@ -63,7 +65,7 @@ class FriendshipServiceTest {
         given(friendshipRepository.save(any(Friendship.class))).willReturn(savedFriendship);
 
         // when
-        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, friendId);
+        FriendshipResponseDto response = friendshipService.sendFriendRequest(userId, friendName);
 
         // then
         assertThat(response.getUserId()).isEqualTo(userId);
@@ -80,10 +82,11 @@ class FriendshipServiceTest {
         // given
         Long userId = 1L;
         Long friendId = 999L;
+        String friendName = "jongwon";
         given(userRepository.findById(friendId)).willReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> friendshipService.sendFriendRequest(userId, friendId))
+        assertThatThrownBy(() -> friendshipService.sendFriendRequest(userId, friendName))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", UserErrorCode.USER_NOT_FOUND);
     }
@@ -94,13 +97,14 @@ class FriendshipServiceTest {
         // given
         Long userId = 1L;
         Long friendId = 2L;
+        String friendName = "jongwon";
         User friend = User.builder().id(friendId).build();
 
         given(userRepository.findById(friendId)).willReturn(Optional.of(friend));
         given(friendshipRepository.existsFriendshipBetween(userId, friendId)).willReturn(true);
 
         // when & then
-        assertThatThrownBy(() -> friendshipService.sendFriendRequest(userId, friendId))
+        assertThatThrownBy(() -> friendshipService.sendFriendRequest(userId, friendName))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", FriendshipErrorCode.FRIENDSHIP_ALREADY_EXISTS);
     }

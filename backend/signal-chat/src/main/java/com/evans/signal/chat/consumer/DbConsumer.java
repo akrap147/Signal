@@ -16,18 +16,19 @@ import org.springframework.stereotype.Component;
 public class DbConsumer {
 
     private final ChatMessageJpaRepository chatMessageRepository;
-    private final ObjectMapper objectMapper;
 
     /**
      * DB 저장 전담 Consumer.
      * 'db.queue'에서 메시지를 꺼내 DB에 저장함.
      * 느려도 상관없음 (비동기 처리)
      */
+    @RabbitListener(queues = RabbitMqConfig.DB_QUEUE_NAME)
     public void saveToDb(ChatMessageDto message) {
         // 이미 MessageConverter가 객체 변환을 끝냈으므로 로직에만 집중
         chatMessageRepository.save(ChatMessage.builder()
                 .roomId(message.getRoomId())
                 .senderId(message.getSenderId())
+                .senderName(message.getSenderName())
                 .content(message.getContent())
                 .seqId(message.getSeqId())
                 .build());

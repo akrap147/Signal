@@ -23,7 +23,6 @@ public class CategoryService {
 
     @Transactional
     public void updateCategoryOrder(Long serverId, List<Long> orderedCategoryIds) {
-        // ... (기존 로직 유지)
         List<Category> categories = categoryRepository.findAllByServerId(serverId);
 
         Map<Long, Category> categoryMap = categories.stream()
@@ -40,14 +39,12 @@ public class CategoryService {
 
     @Transactional
     public Long createCategory(Long serverId, String name) {
-        // ... (기존 로직 유지)
         Category category = Category.create(serverId, name, 0);
         return categoryRepository.save(category).getId();
     }
 
     @Transactional
     public void updateCategory(Long categoryId, String name) {
-        // ... (기존 로직 유지)
         Category category = categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found"));
 
@@ -57,7 +54,6 @@ public class CategoryService {
 
     @Transactional
     public void deleteCategory(Long categoryId) {
-        // Cascade delete channels
         List<Channel> channels = channelRepository.findAllByCategoryId(categoryId);
         channels.forEach(channel -> channelRepository.deleteById(channel.getId()));
 

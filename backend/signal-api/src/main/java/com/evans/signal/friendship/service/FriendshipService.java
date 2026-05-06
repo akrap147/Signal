@@ -29,18 +29,18 @@ public class FriendshipService {
      * A가 B에게 친구 요청 시 (A, B, 'pending') row 생성
      */
     @Transactional
-    public FriendshipResponseDto sendFriendRequest(Long userId, Long friendId) {
+    public FriendshipResponseDto sendFriendRequest(Long userId, String friendName) {
         // 1. 친구 대상 사용자 존재 확인
-        User friend = userRepository.findById(friendId)
+        User friend = userRepository.findByName(friendName)
                 .orElseThrow(() -> new CustomException(UserErrorCode.USER_NOT_FOUND));
 
         // 2. 이미 친구 관계가 존재하는지 확인 (양방향)
-        if (friendshipRepository.existsFriendshipBetween(userId, friendId)) {
+        if (friendshipRepository.existsFriendshipBetween(userId, friend.getId())) {
             throw new CustomException(FriendshipErrorCode.FRIENDSHIP_ALREADY_EXISTS);
         }
 
         // 3. 친구 요청 생성
-        Friendship friendship = Friendship.createRequest(userId, friendId);
+        Friendship friendship = Friendship.createRequest(userId, friend.getId());
         Friendship savedFriendship = friendshipRepository.save(friendship);
 
         return FriendshipResponseDto.from(savedFriendship, UserResponseDto.from(friend));

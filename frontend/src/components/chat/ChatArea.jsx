@@ -4,33 +4,61 @@ import { useServerDetails } from '../../hooks/useServerQueries';
 
 import useChatStore from '../../stores/useChatStore';
 import useAuthStore from '../../stores/useAuthStore';
+import { channelApi } from '../../api/channel';
+import FriendsArea from '../friends/FriendsArea';
+
+function formatTimestamp(ts, createdAt) {
+  const date = ts ? new Date(ts) : createdAt ? new Date(createdAt) : null;
+  if (!date) return '';
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  if (isToday) return `${hh}:${mm}`;
+  return `${date.getMonth() + 1}월 ${date.getDate()}일 ${hh}:${mm}`;
+}
 
 const ChatArea = () => {
-  const { activeServerId, activeChannelId } = useServerStore();
+  const { activeServerId, activeChannelId, dmChannels } = useServerStore();
   const { data: serverDetails } = useServerDetails(activeServerId);
   const { user } = useAuthStore();
-  const userId = user?.id; // 식별자
-  const username = user?.username || user?.email || 'Unknown'; // 표시용 Names
-  
-  const { messages, sendMessage, subscribeToChannel } = useChatStore();
+  const { messages, sendMessage, subscribeToChannel, isConnected } = useChatStore();
   const [inputValue, setInputValue] = React.useState('');
+  const bottomRef = React.useRef(null);
 
-  // 1. 채널 바뀔 때마다 구독 (Subscribe)
+  const userId = user?.id;
+  const username = user?.username || user?.email || 'Unknown';
+
+  const isDmMode = activeServerId === 'dm' || activeServerId === '@me';
+  const showFriends = isDmMode && !activeChannelId;
+
+  // 1. 채널 바뀔 때마다 구독 + 히스토리 로드
   React.useEffect(() => {
-    if (activeChannelId) {
-      // DM인 경우 type='dm'으로 처리해야 함 (추우 구현)
-      // 현재는 일단 모두 CHANNEL로 가정
-      subscribeToChannel(activeChannelId, 'channel');
-    }
-  }, [activeChannelId, subscribeToChannel]);
+    if (!activeChannelId || !isConnected) return;
+
+    useChatStore.setState({ messages: [] });
+    const subscription = subscribeToChannel(activeChannelId, 'channel');
+
+    channelApi.getChannelMessages(activeChannelId).then((history) => {
+      useChatStore.setState((state) => {
+        const historySeqIds = new Set(history.map((m) => m.seqId));
+        const realtime = state.messages.filter((m) => !historySeqIds.has(m.seqId));
+        return { messages: [...history, ...realtime] };
+      });
+    }).catch(() => {});
+
+    return () => subscription?.unsubscribe();
+  }, [activeChannelId, isConnected, subscribeToChannel]);
   
   // 현재 선택된 채널 이름 찾기
   const currentChannelName = React.useMemo(() => {
-    if (activeServerId === 'dm') return 'Friend';
+    if (activeServerId === '@me' || activeServerId === 'dm') {
+      return dmChannels.find((dm) => dm.channelId === activeChannelId)?.friendName || 'DM';
+    }
     if (!serverDetails) return '...';
     const allChannels = serverDetails.categories.flatMap(c => c.channels);
     return allChannels.find(ch => ch.id === activeChannelId)?.name || 'Select Channel';
-  }, [activeServerId, serverDetails, activeChannelId]);
+  }, [activeServerId, serverDetails, activeChannelId, dmChannels]);
 
   // 2. 메시지 전송 (엔터 키)
   const handleKeyDown = (e) => {
@@ -42,20 +70,26 @@ const ChatArea = () => {
       
       e.preventDefault();
       if (inputValue.trim()) {
-        sendMessage(activeChannelId, userId, inputValue); // 전송!
+        sendMessage(activeChannelId, userId, username, inputValue); // 전송!
         setInputValue('');
       }
     }
   };
 
-  const inviteCode = serverDetails?.inviteCode; // 서버 상세 정보에 inviteCode 등재 가정
+  React.useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const inviteCode = serverDetails?.inviteCode;
+
+  if (showFriends) return <FriendsArea />;
 
   return (
     <main className="chat-workspace">
       <header className="workspace-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
-            {activeServerId === 'dm' ? 'Friends' : `# ${currentChannelName}`}
+            {(activeServerId === '@me' || activeServerId === 'dm') ? `@ ${currentChannelName}` : `# ${currentChannelName}`}
           </div>
           {activeServerId !== 'dm' && inviteCode && (
             <span style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
@@ -69,13 +103,13 @@ const ChatArea = () => {
 
       <div className="messages-container">
         {messages.map((msg, index) => {
+
           const isMine = msg.senderId === userId;
           return (
             <div key={index} className={`message-bubble ${isMine ? 'mine' : ''}`}>
               <div className="message-info">
-                <strong>{msg.senderId}</strong> 
-                {/* 시간 정보가 아직 없으므로 생략하거나 msg.createdAt 추가 필요 */}
-                <span>Now</span> 
+                <strong>{msg.senderName ?? msg.senderId}</strong>
+                <span>{formatTimestamp(msg.ts, msg.createdAt)}</span>
               </div>
               <div className="message-text">
                 {msg.content}
@@ -83,6 +117,7 @@ const ChatArea = () => {
             </div>
           );
         })}
+        <div ref={bottomRef} />
       </div>
 
       <footer className="input-section">
@@ -97,7 +132,7 @@ const ChatArea = () => {
           />
           <span style={{ cursor: 'pointer' }} onClick={() => {
               if (inputValue.trim()) {
-                  sendMessage(activeChannelId, userId, inputValue);
+                  sendMessage(activeChannelId, userId, username, inputValue);
                   setInputValue('');
               }
           }}>🚀</span>

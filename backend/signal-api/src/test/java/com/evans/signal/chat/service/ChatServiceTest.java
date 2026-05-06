@@ -1,6 +1,5 @@
 package com.evans.signal.chat.service;
 
-import com.evans.signal.auth.service.ChatService;
 import com.evans.signal.chat.domain.ChatMessage;
 import com.evans.signal.chat.dto.ChatMessageResponse;
 import com.evans.signal.chat.infrastructure.ChatMessageJpaRepository;
@@ -20,7 +19,7 @@ import static org.mockito.BDDMockito.given;
 class ChatServiceTest {
 
     @InjectMocks
-    private ChatService chatService;
+    private MessageService messageService;
 
     @Mock
     private ChatMessageJpaRepository chatMessageJpaRepository;
@@ -31,13 +30,13 @@ class ChatServiceTest {
         // given
         Long channelId = 1L;
         List<ChatMessage> messages = List.of(
-                ChatMessage.builder().roomId(channelId).senderId(10L).content("안녕하세요").seqId(1L).build(),
-                ChatMessage.builder().roomId(channelId).senderId(11L).content("반갑습니다").seqId(2L).build()
+                ChatMessage.builder().roomId(channelId).senderId(10L).senderName("Alice").content("안녕하세요").seqId(1L).build(),
+                ChatMessage.builder().roomId(channelId).senderId(11L).senderName("Bob").content("반갑습니다").seqId(2L).build()
         );
         given(chatMessageJpaRepository.findAllByRoomIdOrderBySeqIdAsc(channelId)).willReturn(messages);
 
         // when
-        List<ChatMessageResponse> result = chatService.getChannelMessages(channelId);
+        List<ChatMessageResponse> result = messageService.getChannelMessages(channelId);
 
         // then
         assertThat(result).hasSize(2);
@@ -55,7 +54,7 @@ class ChatServiceTest {
         given(chatMessageJpaRepository.findAllByRoomIdOrderBySeqIdAsc(channelId)).willReturn(List.of());
 
         // when
-        List<ChatMessageResponse> result = chatService.getChannelMessages(channelId);
+        List<ChatMessageResponse> result = messageService.getChannelMessages(channelId);
 
         // then
         assertThat(result).isEmpty();
