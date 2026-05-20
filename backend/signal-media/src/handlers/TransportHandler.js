@@ -3,9 +3,26 @@ import { config } from '../config.js';
 export class TransportHandler {
   constructor(roomHandler) {
     this.roomHandler = roomHandler;
-    this.transports = new Map(); // transportId -> transport
-    this.producers = new Map();  // producerId -> producer
-    this.consumers = new Map();  // consumerId -> consumer
+    this.transports = new Map();     // transportId -> transport
+    this.producers = new Map();      // producerId -> producer
+    this.consumers = new Map();      // consumerId -> consumer
+    this.roomProducers = new Map();  // roomId -> Set<producerId>
+  }
+
+  getProducerIds(roomId) {
+    return [...(this.roomProducers.get(roomId) || [])];
+  }
+
+  _addProducerToRoom(roomId, producerId) {
+    if (!this.roomProducers.has(roomId)) this.roomProducers.set(roomId, new Set());
+    this.roomProducers.get(roomId).add(producerId);
+  }
+
+  _removeProducerFromRoom(producer) {
+    const roomId = producer.appData.roomId;
+    if (roomId && this.roomProducers.has(roomId)) {
+      this.roomProducers.get(roomId).delete(producer.id);
+    }
   }
 
   async createWebRtcTransport(roomId) {
@@ -44,9 +61,12 @@ export class TransportHandler {
     if (!transport) throw new Error(`Transport not found: ${transportId}`);
 
     const producer = await transport.produce({ kind, rtpParameters });
+    producer.appData.roomId = transport.appData.roomId;
     this.producers.set(producer.id, producer);
+    this._addProducerToRoom(transport.appData.roomId, producer.id);
 
     producer.on('transportclose', () => {
+      this._removeProducerFromRoom(producer);
       producer.close();
       this.producers.delete(producer.id);
     });
@@ -116,6 +136,7 @@ export class TransportHandler {
     const producer = this.producers.get(producerId);
     if (!producer) return;
 
+    this._removeProducerFromRoom(producer);
     producer.close();
     this.producers.delete(producerId);
     console.log(`[Mediasoup] Producer closed: ${producerId}`);

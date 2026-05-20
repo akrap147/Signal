@@ -1,5 +1,15 @@
 import client from './client';
 
+export const presenceApi = {
+  getOnlineAmong: async (userIds) => {
+    if (!userIds || userIds.length === 0) return new Set();
+    const response = await client.get('/presence/online', {
+      params: { userIds: userIds.join(',') },
+    });
+    return new Set(response.data.map(String));
+  },
+};
+
 export const friendApi = {
   getMyFriends: async () => {
     const response = await client.get('/friends');

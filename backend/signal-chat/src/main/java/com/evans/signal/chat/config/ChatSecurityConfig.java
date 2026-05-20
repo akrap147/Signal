@@ -19,8 +19,8 @@ public class ChatSecurityConfig {
         http
                 .csrf(csrf -> csrf.disable()) // CSRF 비활성화
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/ws-stomp/**").permitAll() // WebSocket 연결 허용 🔓
-                        .anyRequest().permitAll() // (테스트용) 모든 요청 허용
+                        .requestMatchers("/ws-stomp/**", "/ws/signaling/**").permitAll()
+                        .anyRequest().permitAll()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider), UsernamePasswordAuthenticationFilter.class);
         return http.build();

@@ -46,8 +46,9 @@ async function connectRabbitMQ() {
         try {
           if (routingKey === 'signal.media.createRouter') {
             const router = await mediasoupManager.getOrCreateRouter(content.roomId);
-            response = { success: true, rtpCapabilities: router.rtpCapabilities };
-          } 
+            const existingProducerIds = mediasoupManager.getProducerIds(content.roomId);
+            response = { success: true, rtpCapabilities: router.rtpCapabilities, existingProducerIds };
+          }
           else if (routingKey === 'signal.media.createTransport') {
             const transportInfo = await mediasoupManager.createWebRtcTransport(content.roomId);
             response = { success: true, ...transportInfo };

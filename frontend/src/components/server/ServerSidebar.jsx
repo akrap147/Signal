@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useServerStore from '../../stores/useServerStore';
 import useAuthStore from '../../stores/useAuthStore';
 import { useServerDetails } from '../../hooks/useServerQueries';
@@ -8,10 +9,15 @@ import CreateChannelModal from '../modals/CreateChannelModal';
 import { friendApi } from '../../api/friend';
 import { dmApi } from '../../api/channel';
 import { serverApi } from '../../api/server';
+import useVoiceStore from '../../stores/useVoiceStore';
+import useChatStore from '../../stores/useChatStore';
+import VoiceStatusBar from '../voice/VoiceStatusBar';
 
 const ServerSidebar = () => {
+  const navigate = useNavigate();
   const { activeServerId, activeChannelId, setActiveChannel } = useServerStore();
   const { user } = useAuthStore();
+  const { activeVoiceChannelId, joinVoiceChannel } = useVoiceStore();
   const { data: serverDetails, isLoading, error } = useServerDetails(activeServerId);
 
   // Modal State
@@ -33,15 +39,15 @@ const ServerSidebar = () => {
     }
   };
 
-  // 서버가 바뀌어서 데이터가 로드되면 첫 번째 채널 자동 선택
+  // 서버가 바뀌어서 데이터가 로드되면 첫 번째 채널로 URL 이동
   useEffect(() => {
     if (serverDetails?.categories?.length > 0 && !activeChannelId) {
-        const firstChannel = serverDetails.categories[0].channels?.[0];
-        if (firstChannel) {
-            setActiveChannel(firstChannel.id);
-        }
+      const firstChannel = serverDetails.categories[0].channels?.[0];
+      if (firstChannel) {
+        navigate(`/channels/${activeServerId}/${firstChannel.id}`, { replace: true });
+      }
     }
-  }, [serverDetails, activeChannelId, setActiveChannel]);
+  }, [serverDetails, activeChannelId, activeServerId]);
 
   const handleAddChannel = (catId) => {
       setTargetCategoryId(catId);
@@ -108,20 +114,33 @@ const ServerSidebar = () => {
                     +
                   </button>
                 </div>
-                {category.channels?.map((ch) => (
-                  <div 
-                    key={ch.id} 
-                    className={clsx('sidebar-item', { active: activeChannelId === ch.id })}
-                    onClick={() => setActiveChannel(ch.id)}
-                  >
-                    <span style={{ opacity: 0.5 }}>#</span> {ch.name}
-                  </div>
-                ))}
+                {category.channels?.map((ch) => {
+                  const isVoice = ch.type === 'VOICE';
+                  const isVoiceActive = isVoice && activeVoiceChannelId === ch.id;
+                  return (
+                    <div
+                      key={ch.id}
+                      className={clsx('sidebar-item', { active: isVoice ? isVoiceActive : activeChannelId === ch.id })}
+                      onClick={() => {
+                        if (isVoice) {
+                          joinVoiceChannel(ch.id);
+                        } else {
+                          navigate(`/channels/${activeServerId}/${ch.id}`);
+                        }
+                      }}
+                      style={isVoiceActive ? { color: '#3ba55d' } : {}}
+                    >
+                      <span style={{ opacity: 0.5 }}>{isVoice ? '🔊' : '#'}</span>{' '}{ch.name}
+                      {isVoiceActive && <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#3ba55d' }}>●</span>}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
         </div>
-         <UserPanel />
+        <VoiceStatusBar />
+        <UserPanel />
       </aside>
 
       {isChannelModalOpen && (
@@ -136,6 +155,7 @@ const ServerSidebar = () => {
 
 // DM 모드 사이드바
 const FriendsSidebar = () => {
+  const navigate = useNavigate();
   const { activeChannelId, setActiveChannel, dmChannels, setDmChannels } = useServerStore();
   const [receivedCount, setReceivedCount] = useState(0);
 
@@ -152,7 +172,7 @@ const FriendsSidebar = () => {
         <div className="sidebar-list">
           <div
             className={clsx('sidebar-item', { active: !activeChannelId })}
-            onClick={() => setActiveChannel(null)}
+            onClick={() => navigate('/channels/@me')}
           >
             <span style={{ marginRight: '8px' }}>👋</span> 친구
             {receivedCount > 0 && (
@@ -170,7 +190,7 @@ const FriendsSidebar = () => {
             <div
               key={dm.channelId}
               className={clsx('sidebar-item', { active: activeChannelId === dm.channelId })}
-              onClick={() => setActiveChannel(dm.channelId)}
+              onClick={() => navigate(`/channels/@me/${dm.channelId}`)}
             >
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#5865f2', marginRight: '8px', flexShrink: 0 }} />
               {dm.friendName}
@@ -216,6 +236,8 @@ const UserPanel = () => {
   const displayedName = user?.username || user?.email || 'Unknown User';
 
   const handleConfirmLogout = () => {
+    useVoiceStore.getState().leaveVoiceChannel();
+    useChatStore.getState().disconnect();
     logout();
     queryClient.clear();
   };

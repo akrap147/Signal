@@ -17,6 +17,10 @@ class MediasoupManager {
     return this.roomHandler.getOrCreateRouter(roomId);
   }
 
+  getProducerIds(roomId) {
+    return this.transportHandler.getProducerIds(roomId);
+  }
+
   async createWebRtcTransport(roomId) {
     return this.transportHandler.createWebRtcTransport(roomId);
   }

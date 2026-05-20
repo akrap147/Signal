@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { friendApi } from '../../api/friend';
+import { friendApi, presenceApi } from '../../api/friend';
 import { dmApi } from '../../api/channel';
 import useServerStore from '../../stores/useServerStore';
+import useChatStore from '../../stores/useChatStore';
 
 const TABS = ['전체 친구', '대기 중', '친구 추가'];
 
@@ -26,23 +27,53 @@ export default function FriendsArea() {
   const [received, setReceived] = useState([]);
   const [friendNameInput, setFriendNameInput] = useState('');
   const [message, setMessage] = useState(null); // { type: 'success'|'error', text }
+  const [onlineIds, setOnlineIds] = useState(new Set()); // Set<string>
+
+  const { client, isConnected } = useChatStore();
 
   const loadFriends = useCallback(async () => {
+    let friendsList = [];
     try {
-      const [friendsList, receivedList] = await Promise.all([
+      const [fl, receivedList] = await Promise.all([
         friendApi.getMyFriends(),
         friendApi.getReceivedRequests(),
       ]);
-      setFriends(friendsList);
+      friendsList = fl;
+      setFriends(fl);
       setReceived(receivedList);
     } catch {
       // 조용히 실패
+    }
+
+    try {
+      const friendIds = friendsList.map((f) => f.friendId);
+      const onlineSet = await presenceApi.getOnlineAmong(friendIds);
+      setOnlineIds(onlineSet);
+    } catch {
+      // presence 실패해도 친구 목록은 정상 표시
     }
   }, []);
 
   useEffect(() => {
     loadFriends();
   }, [loadFriends]);
+
+  // /topic/presence 구독으로 실시간 온/오프라인 반영
+  useEffect(() => {
+    if (!client || !isConnected) return;
+
+    const sub = client.subscribe('/topic/presence', (msg) => {
+      const { userId, status } = JSON.parse(msg.body);
+      setOnlineIds((prev) => {
+        const next = new Set(prev);
+        if (status === 'ONLINE') next.add(String(userId));
+        else next.delete(String(userId));
+        return next;
+      });
+    });
+
+    return () => sub.unsubscribe();
+  }, [client, isConnected]);
 
   const handleSendRequest = async () => {
     const name = friendNameInput.trim();
@@ -131,7 +162,15 @@ export default function FriendsArea() {
                 <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', borderRadius: '8px', marginBottom: '4px', background: 'var(--bg-secondary, #2f3136)' }}>
                   <div>
                     <div style={{ fontWeight: 600 }}>{f.friendInfo?.username ?? `User #${f.friendId}`}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>온라인</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '2px' }}>
+                      <span style={{
+                        width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0,
+                        background: onlineIds.has(String(f.friendId)) ? '#3ba55d' : '#747f8d',
+                      }} />
+                      <span style={{ fontSize: '0.8rem', color: onlineIds.has(String(f.friendId)) ? '#3ba55d' : '#96989d' }}>
+                        {onlineIds.has(String(f.friendId)) ? '온라인' : '오프라인'}
+                      </span>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
                     <button

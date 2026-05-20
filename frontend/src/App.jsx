@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import PublicRoute from './components/PublicRoute';
 import useAuthStore from './stores/useAuthStore';
 import useChatStore from './stores/useChatStore';
+import useVoiceStore from './stores/useVoiceStore';
 import { authApi } from './api/auth';
 
 function App() {
@@ -25,6 +26,19 @@ function App() {
       disconnect();
     }
   }, [accessToken, user?.id]);
+
+  // 브라우저 창 닫힐 때 WebSocket 명시적으로 닫아 서버가 즉시 감지하도록
+  React.useEffect(() => {
+    const handleUnload = () => {
+      useVoiceStore.getState().leaveVoiceChannel();
+      const { client } = useChatStore.getState();
+      if (client?.webSocket?.readyState === WebSocket.OPEN) {
+        client.webSocket.close();
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, []);
 
   return (
     <Routes>

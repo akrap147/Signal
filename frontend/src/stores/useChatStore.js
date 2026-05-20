@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Client } from '@stomp/stompjs';
+import useAuthStore from './useAuthStore';
 
 const useChatStore = create((set, get) => ({
   client: null,
@@ -11,9 +12,16 @@ const useChatStore = create((set, get) => ({
     // 이미 연결되어 있으면 패스
     if (get().client && get().client.active) return;
 
+    const token = useAuthStore.getState().accessToken;
+
     const client = new Client({
-      brokerURL: 'ws://localhost:8081/ws-stomp', // 채팅 서버 주소 (8081 포트 확인!)
-      reconnectDelay: 5000, // 연결 끊기면 5초 뒤 재시도
+      brokerURL: import.meta.env.VITE_CHAT_WS_URL,
+      connectHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+      reconnectDelay: 5000,
+      heartbeatIncoming: 25000,
+      heartbeatOutgoing: 25000,
       onConnect: () => {
         console.log('✅ Chat Server Connected!');
         set({ isConnected: true });

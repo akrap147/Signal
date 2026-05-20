@@ -1,30 +1,151 @@
 version: '3.8'
 
-# 일단 빠른 test용 postgreSQL 만들기
 services:
-  db:
-    image: postgres:15-alpine
-    container_name: discord_postgres
-    environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: discord_db
-    ports:
-      - "5432:5432"
 
   rabbitmq:
     image: rabbitmq:3-management
     container_name: signal_rabbitmq
     ports:
-      - "5672:5672"   # AMQP
-      - "15672:15672" # Management UI
-      - "61613:61613" # STOMP
+      - "5672:5672"
+      - "15672:15672"
+      - "61613:61613"
     command: /bin/bash -c "rabbitmq-plugins enable --offline rabbitmq_stomp && rabbitmq-server"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-  redis:
-    image: redis:alpine
-    container_name: signal_redis
+  redis-master:
+    image: redis:7-alpine
+    container_name: signal_redis_master
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  redis-replica-1:
+    image: redis:7-alpine
+    container_name: signal_redis_replica_1
+    command: redis-server --replicaof redis-master 6379
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
+  redis-replica-2:
+    image: redis:7-alpine
+    container_name: signal_redis_replica_2
+    command: redis-server --replicaof redis-master 6379
+    depends_on:
+      redis-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-sentinel-1:
+    image: redis:7-alpine
+    container_name: signal_redis_sentinel_1
+    ports:
+      - "26379:26379"
+    command: |
+      sh -c "echo 'port 26379' > /tmp/sentinel.conf &&
+      echo 'sentinel resolve-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel announce-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel monitor mymaster redis-master 6379 2' >> /tmp/sentinel.conf &&
+      echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
+      echo 'sentinel failover-timeout mymaster 60000' >> /tmp/sentinel.conf &&
+      echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-sentinel-2:
+    image: redis:7-alpine
+    container_name: signal_redis_sentinel_2
+    ports:
+      - "26380:26379"
+    command: |
+      sh -c "echo 'port 26379' > /tmp/sentinel.conf &&
+      echo 'sentinel resolve-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel announce-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel monitor mymaster redis-master 6379 2' >> /tmp/sentinel.conf &&
+      echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
+      echo 'sentinel failover-timeout mymaster 60000' >> /tmp/sentinel.conf &&
+      echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis-sentinel-3:
+    image: redis:7-alpine
+    container_name: signal_redis_sentinel_3
+    ports:
+      - "26381:26379"
+    command: |
+      sh -c "echo 'port 26379' > /tmp/sentinel.conf &&
+      echo 'sentinel resolve-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel announce-hostnames yes' >> /tmp/sentinel.conf &&
+      echo 'sentinel monitor mymaster redis-master 6379 2' >> /tmp/sentinel.conf &&
+      echo 'sentinel down-after-milliseconds mymaster 5000' >> /tmp/sentinel.conf &&
+      echo 'sentinel failover-timeout mymaster 60000' >> /tmp/sentinel.conf &&
+      echo 'sentinel parallel-syncs mymaster 1' >> /tmp/sentinel.conf &&
+      redis-sentinel /tmp/sentinel.conf"
+    depends_on:
+      redis-master:
+        condition: service_healthy
+      redis-replica-1:
+        condition: service_healthy
+      redis-replica-2:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "26379", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  signal-media:
+    build:
+      context: ./signal-media
+      dockerfile: Dockerfile
+    container_name: signal_media
+    profiles: ["prod"]
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      MEDIASOUP_LISTEN_IP: 0.0.0.0
+      MEDIASOUP_ANNOUNCED_IP: ${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
+    ports:
+      - "10000-10100:10000-10100/udp"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
