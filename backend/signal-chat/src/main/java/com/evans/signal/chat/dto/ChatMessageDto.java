@@ -18,6 +18,4 @@ public class ChatMessageDto {
     private Long senderId;
     private String content;
     private String senderName;
-    private Double ts; // Latency 측정용 timestamp
-    private Long seqId; // Redis Atomic Sequence ID
 }

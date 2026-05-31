@@ -3,7 +3,7 @@ package com.evans.signal.auth.service;
 import com.evans.signal.auth.jwt.JwtTokenProvider;
 import com.evans.signal.global.exception.CustomException;
 import com.evans.signal.user.domain.User;
-import com.evans.signal.user.dto.LoginResponseDto;
+import com.evans.signal.auth.dto.LoginResponseDto;
 import com.evans.signal.user.exception.UserErrorCode;
 import com.evans.signal.user.service.port.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -17,8 +17,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 

@@ -1,8 +1,10 @@
 package com.evans.signal.auth.controller;
 
+import com.evans.signal.auth.dto.LogoutRequestDto;
 import com.evans.signal.auth.service.AuthService;
-import com.evans.signal.user.dto.LoginRequestDto;
-import com.evans.signal.user.dto.LoginResponseDto;
+import com.evans.signal.auth.dto.LoginRequestDto;
+import com.evans.signal.auth.dto.LoginResponseDto;
+import lombok.RequiredArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,4 +23,10 @@ public class AuthController {
     public ResponseEntity<LoginResponseDto> login(@RequestBody LoginRequestDto dto) {
         return ResponseEntity.ok(authService.login(dto.getEmail(), dto.getPassword()));
     }
+
+    @PostMapping("/logout")
+    public void logout(@RequestBody LogoutRequestDto dto){
+        authService.logout(dto.getId());
+    }
+
 }

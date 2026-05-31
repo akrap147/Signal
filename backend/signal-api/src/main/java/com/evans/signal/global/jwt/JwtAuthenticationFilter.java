@@ -1,5 +1,6 @@
-package com.evans.signal.auth.jwt;
+package com.evans.signal.global.jwt;
 
+import com.evans.signal.auth.jwt.JwtTokenProvider;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

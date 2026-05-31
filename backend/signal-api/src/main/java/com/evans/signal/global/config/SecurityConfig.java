@@ -1,6 +1,6 @@
 package com.evans.signal.global.config;
 
-import com.evans.signal.auth.jwt.JwtAuthenticationFilter;
+import com.evans.signal.global.jwt.JwtAuthenticationFilter;
 import com.evans.signal.auth.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

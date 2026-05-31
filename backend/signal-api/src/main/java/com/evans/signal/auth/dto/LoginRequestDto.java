@@ -1,4 +1,4 @@
-package com.evans.signal.user.dto;
+package com.evans.signal.auth.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

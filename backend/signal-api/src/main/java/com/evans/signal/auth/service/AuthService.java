@@ -2,8 +2,9 @@ package com.evans.signal.auth.service;
 
 import com.evans.signal.auth.jwt.JwtTokenProvider;
 import com.evans.signal.global.exception.CustomException;
+import com.evans.signal.redis.presence.RedisUserStatusService;
 import com.evans.signal.user.domain.User;
-import com.evans.signal.user.dto.LoginResponseDto;
+import com.evans.signal.auth.dto.LoginResponseDto;
 import com.evans.signal.user.exception.UserErrorCode;
 import com.evans.signal.user.service.port.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,11 +24,14 @@ public class AuthService {
                 .filter(u -> u.checkPassword(password, passwordEncoder))
                 .orElseThrow(() -> new CustomException(UserErrorCode.LOGIN_FAILED));
 
-        // 2. 토큰 생성 (여기서 username을 넣으면 프론트가 편해집니다)
         String accessToken = jwtTokenProvider.createToken(user.getId(), user.getUsername());
 
-        // 3. 토큰 + 유저 정보 반환
         return new LoginResponseDto(accessToken, user.getId(), user.getUsername(), user.getEmail());
+    }
+
+    //todo : 로그아웃 기능 완성
+    public void logout(long id){
+        // accessToken 없애기
     }
 
     @Transactional

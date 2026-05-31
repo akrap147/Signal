@@ -4,7 +4,6 @@ import com.evans.signal.chat.config.RabbitMqConfig;
 import com.evans.signal.chat.domain.ChatMessage;
 import com.evans.signal.chat.dto.ChatMessageDto;
 import com.evans.signal.chat.infrastructure.ChatMessageJpaRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -30,7 +29,6 @@ public class DbConsumer {
                 .senderId(message.getSenderId())
                 .senderName(message.getSenderName())
                 .content(message.getContent())
-                .seqId(message.getSeqId())
                 .build());
 
         log.debug("DB saved: Room {} from User {}", message.getRoomId(), message.getSenderId());
