@@ -1,11 +1,12 @@
 import React from 'react';
 import useServerStore from '../../stores/useServerStore';
 import { useServerDetails } from '../../hooks/useServerQueries';
-
 import useChatStore from '../../stores/useChatStore';
 import useAuthStore from '../../stores/useAuthStore';
+import useVoiceStore from '../../stores/useVoiceStore';
 import { channelApi } from '../../api/channel';
 import FriendsArea from '../friends/FriendsArea';
+import CanvasArea from '../canvas/CanvasArea';
 
 function formatTimestamp(ts, createdAt) {
   const date = ts ? new Date(ts) : createdAt ? new Date(createdAt) : null;
@@ -23,6 +24,7 @@ const ChatArea = () => {
   const { data: serverDetails } = useServerDetails(activeServerId);
   const { user } = useAuthStore();
   const { messages, sendMessage, subscribeToChannel, isConnected } = useChatStore();
+  const { activeVoiceChannelId, joinVoiceChannel } = useVoiceStore();
   const [inputValue, setInputValue] = React.useState('');
   const bottomRef = React.useRef(null);
 
@@ -32,9 +34,32 @@ const ChatArea = () => {
   const isDmMode = activeServerId === 'dm' || activeServerId === '@me';
   const showFriends = isDmMode && !activeChannelId;
 
-  // 1. 채널 바뀔 때마다 구독 + 히스토리 로드
+  // 현재 채널 메타 (type 포함)
+  const currentChannel = React.useMemo(() => {
+    if (!serverDetails || isDmMode) return null;
+    return serverDetails.categories.flatMap((c) => c.channels).find((ch) => ch.id === activeChannelId) ?? null;
+  }, [serverDetails, activeChannelId, isDmMode]);
+
+  const isVoiceChannel = currentChannel?.type === 'VOICE';
+
+  const currentChannelName = React.useMemo(() => {
+    if (isDmMode) {
+      return dmChannels.find((dm) => dm.channelId === activeChannelId)?.friendName || 'DM';
+    }
+    return currentChannel?.name || (serverDetails ? 'Select Channel' : '...');
+  }, [isDmMode, dmChannels, activeChannelId, currentChannel, serverDetails]);
+
+  // 음성 채널 입장 시 자동 음성 연결
   React.useEffect(() => {
-    if (!activeChannelId || !isConnected) return;
+    if (!isVoiceChannel || !activeChannelId || !isConnected) return;
+    if (activeVoiceChannelId !== activeChannelId) {
+      joinVoiceChannel(activeChannelId);
+    }
+  }, [isVoiceChannel, activeChannelId, isConnected]);
+
+  // 텍스트 채널 채팅 구독 (음성 채널은 제외)
+  React.useEffect(() => {
+    if (!activeChannelId || !isConnected || isVoiceChannel) return;
 
     useChatStore.setState({ messages: [] });
     const subscription = subscribeToChannel(activeChannelId, 'channel');
@@ -48,29 +73,14 @@ const ChatArea = () => {
     }).catch(() => {});
 
     return () => subscription?.unsubscribe();
-  }, [activeChannelId, isConnected, subscribeToChannel]);
-  
-  // 현재 선택된 채널 이름 찾기
-  const currentChannelName = React.useMemo(() => {
-    if (activeServerId === '@me' || activeServerId === 'dm') {
-      return dmChannels.find((dm) => dm.channelId === activeChannelId)?.friendName || 'DM';
-    }
-    if (!serverDetails) return '...';
-    const allChannels = serverDetails.categories.flatMap(c => c.channels);
-    return allChannels.find(ch => ch.id === activeChannelId)?.name || 'Select Channel';
-  }, [activeServerId, serverDetails, activeChannelId, dmChannels]);
+  }, [activeChannelId, isConnected, isVoiceChannel, subscribeToChannel]);
 
-  // 2. 메시지 전송 (엔터 키)
   const handleKeyDown = (e) => {
-    // 한글 입력 중 엔터 키 입력 시 중복 전송 방지 등을 위해 isComposing 체크를 할 수도 있지만,
-    // 현재 "전송이 안 된다"는 이슈가 있으므로 체크를 제거하고 기본 동작 방지(preventDefault)를 먼저 수행
     if (e.key === 'Enter' && !e.shiftKey) {
-      // 한글 조합 중이더라도 엔터를 누르면 전송하도록 허용 (사용자 경험상 이게 더 나음)
       if (e.nativeEvent.isComposing) return;
-      
       e.preventDefault();
       if (inputValue.trim()) {
-        sendMessage(activeChannelId, userId, username, inputValue); // 전송!
+        sendMessage(activeChannelId, userId, username, inputValue);
         setInputValue('');
       }
     }
@@ -84,16 +94,46 @@ const ChatArea = () => {
 
   if (showFriends) return <FriendsArea />;
 
+  // ── 음성 채널: 캔버스 전용 화면 ──
+  if (isVoiceChannel) {
+    return (
+      <main className="chat-workspace">
+        <header className="workspace-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
+              🎨 {currentChannelName}
+            </div>
+            {inviteCode && (
+              <span
+                style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
+                onClick={() => { navigator.clipboard.writeText(inviteCode); alert('Copied!'); }}
+              >
+                Code: {inviteCode}
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+            🎙️ 음성 + 🎨 캔버스
+          </div>
+        </header>
+        <CanvasArea roomId={activeChannelId} />
+      </main>
+    );
+  }
+
+  // ── 텍스트 채널 / DM: 채팅 화면 ──
   return (
     <main className="chat-workspace">
       <header className="workspace-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ fontSize: '1.1rem', fontWeight: '700' }}>
-            {(activeServerId === '@me' || activeServerId === 'dm') ? `@ ${currentChannelName}` : `# ${currentChannelName}`}
+            {isDmMode ? `@ ${currentChannelName}` : `# ${currentChannelName}`}
           </div>
-          {activeServerId !== 'dm' && inviteCode && (
-            <span style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
-                  onClick={() => {navigator.clipboard.writeText(inviteCode); alert('Copied!')}}>
+          {!isDmMode && inviteCode && (
+            <span
+              style={{ fontSize: '0.8rem', background: '#444', padding: '2px 6px', borderRadius: '4px', cursor: 'pointer' }}
+              onClick={() => { navigator.clipboard.writeText(inviteCode); alert('Copied!'); }}
+            >
               Code: {inviteCode}
             </span>
           )}
@@ -103,7 +143,6 @@ const ChatArea = () => {
 
       <div className="messages-container">
         {messages.map((msg, index) => {
-
           const isMine = msg.senderId === userId;
           return (
             <div key={index} className={`message-bubble ${isMine ? 'mine' : ''}`}>
@@ -111,9 +150,7 @@ const ChatArea = () => {
                 <strong>{msg.senderName ?? msg.senderId}</strong>
                 <span>{formatTimestamp(msg.ts, msg.createdAt)}</span>
               </div>
-              <div className="message-text">
-                {msg.content}
-              </div>
+              <div className="message-text">{msg.content}</div>
             </div>
           );
         })}
@@ -123,18 +160,18 @@ const ChatArea = () => {
       <footer className="input-section">
         <div className="input-box">
           <span style={{ fontSize: '1.2rem', cursor: 'pointer' }}>⊕</span>
-          <input 
-            type="text" 
-            placeholder={`Message #${currentChannelName}`} 
+          <input
+            type="text"
+            placeholder={`Message ${isDmMode ? `@ ${currentChannelName}` : `# ${currentChannelName}`}`}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
           />
           <span style={{ cursor: 'pointer' }} onClick={() => {
-              if (inputValue.trim()) {
-                  sendMessage(activeChannelId, userId, username, inputValue);
-                  setInputValue('');
-              }
+            if (inputValue.trim()) {
+              sendMessage(activeChannelId, userId, username, inputValue);
+              setInputValue('');
+            }
           }}>🚀</span>
         </div>
       </footer>

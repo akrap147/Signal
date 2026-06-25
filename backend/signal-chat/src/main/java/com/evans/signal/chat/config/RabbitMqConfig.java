@@ -21,11 +21,6 @@ public class RabbitMqConfig {
     public static final String DB_QUEUE_NAME    = "chat.db.queue";
     public static final String DB_ROUTING_KEY   = "chat.db.record";
 
-    // ── Signaling (WebRTC ↔ signal-media RPC) ────────────────
-    public static final String SIGNALING_EXCHANGE    = "signal.signaling.exchange";
-    public static final String MEDIA_REQUEST_QUEUE   = "signal.media.request.queue";
-    public static final String SIGNALING_REPLY_QUEUE = "signal.signaling.reply.queue";
-
     // ── 공통 ────────────────────────────────────────────────
     @Bean
     public MessageConverter jsonMessageConverter() {

@@ -26,9 +26,6 @@ public class ChatMessage extends BaseTimeEntity {
     @Column(nullable = false)
     private Long senderId;
 
-    @Column(nullable = false)
-    private Long seqId;
-
     @Column(columnDefinition = "TEXT")
     private String content;
 

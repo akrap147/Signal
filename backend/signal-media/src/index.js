@@ -1,128 +1,61 @@
 import dotenv from 'dotenv';
-import amqp from 'amqplib';
+import express from 'express';
 import { config } from './config.js';
-import { mediasoupManager } from './mediasoup.js';
+import { initWorker } from './worker.js';
+import { getOrCreateRouter } from './room.js';
+import { getProducerIds, createTransport, connectTransport, produce, consume, resume, closeTransport } from './session.js';
 
 dotenv.config();
 
-let connection;
-let channel;
+const app = express();
+app.use(express.json());
 
-const RECONNECT_INTERVAL = 5000;
+app.post('/router', async (req, res) => {
+  const { roomId } = req.body;
+  const router = await getOrCreateRouter(roomId);
+  res.json({ rtpCapabilities: router.rtpCapabilities, existingProducerIds: getProducerIds(roomId) });
+});
 
-async function connectRabbitMQ() {
-  try {
-    console.log('[RabbitMQ] Connecting...');
-    connection = await amqp.connect(config.rabbitmq.url);
-    channel = await connection.createChannel();
+app.post('/transport', async (req, res) => {
+  res.json(await createTransport(req.body.roomId));
+});
 
-    connection.on('error', (err) => {
-      console.error('[RabbitMQ] Connection error', err);
-      setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
-    });
+app.post('/connect', async (req, res) => {
+  const { transportId, dtlsParameters } = req.body;
+  await connectTransport(transportId, dtlsParameters);
+  res.json({ success: true });
+});
 
-    connection.on('close', () => {
-      console.warn('[RabbitMQ] Connection closed. Reconnecting...');
-      setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
-    });
-    
-    await channel.assertExchange(config.rabbitmq.exchange, 'topic', { durable: true });
-    const q = await channel.assertQueue(config.rabbitmq.requestQueue, { durable: true });
-    await channel.bindQueue(q.queue, config.rabbitmq.exchange, 'signal.media.#');
+app.post('/produce', async (req, res) => {
+  const { transportId, kind, rtpParameters } = req.body;
+  res.json(await produce(transportId, kind, rtpParameters));
+});
 
-    console.log(`[*] Waiting for messages in ${q.queue}`);
+app.post('/consume', async (req, res) => {
+  const { transportId, producerId, rtpCapabilities, roomId } = req.body;
+  res.json(await consume(transportId, producerId, rtpCapabilities, roomId));
+});
 
-    channel.consume(q.queue, async (msg) => {
-      if (msg !== null) {
-        const routingKey = msg.fields.routingKey;
-        const content = JSON.parse(msg.content.toString());
-        const replyTo = msg.properties.replyTo;
-        const correlationId = msg.properties.correlationId;
+app.post('/resume', async (req, res) => {
+  await resume(req.body.consumerId);
+  res.json({ success: true });
+});
 
-        console.log(`[x] Received: ${routingKey}`, content);
-        
-        let response = { success: false };
+app.post('/close', async (req, res) => {
+  await closeTransport(req.body.transportId);
+  res.json({ success: true });
+});
 
-        try {
-          if (routingKey === 'signal.media.createRouter') {
-            const router = await mediasoupManager.getOrCreateRouter(content.roomId);
-            const existingProducerIds = mediasoupManager.getProducerIds(content.roomId);
-            response = { success: true, rtpCapabilities: router.rtpCapabilities, existingProducerIds };
-          }
-          else if (routingKey === 'signal.media.createTransport') {
-            const transportInfo = await mediasoupManager.createWebRtcTransport(content.roomId);
-            response = { success: true, ...transportInfo };
-          }
-          else if (routingKey === 'signal.media.connectTransport') {
-            const { transportId, dtlsParameters } = content;
-            await mediasoupManager.connectWebRtcTransport(transportId, dtlsParameters);
-            response = { success: true };
-          }
-          else if (routingKey === 'signal.media.produce') {
-            const { transportId, kind, rtpParameters } = content;
-            const producerInfo = await mediasoupManager.produce(transportId, kind, rtpParameters);
-            response = { success: true, ...producerInfo };
-          }
-          else if (routingKey === 'signal.media.consume') {
-            const { transportId, producerId, rtpCapabilities, roomId } = content;
-            const consumerInfo = await mediasoupManager.consume(transportId, producerId, rtpCapabilities, roomId);
-            response = { success: true, ...consumerInfo };
-          }
-          else if (routingKey === 'signal.media.resume') {
-             const { consumerId } = content;
-             await mediasoupManager.resume(consumerId);
-             response = { success: true };
-          }
-          else if (routingKey === 'signal.media.closeTransport') {
-            const { transportId } = content;
-            await mediasoupManager.closeTransport(transportId);
-            response = { success: true };
-          }
-          else if (routingKey === 'signal.media.closeProducer') {
-            const { producerId } = content;
-            await mediasoupManager.closeProducer(producerId);
-            response = { success: true };
-          }
-          else if (routingKey === 'signal.media.closeConsumer') {
-            const { consumerId } = content;
-            await mediasoupManager.closeConsumer(consumerId);
-            response = { success: true };
-          }
-          
-          // 응답 전송 (RPC 패턴)
-          if (replyTo) {
-            channel.sendToQueue(replyTo, Buffer.from(JSON.stringify(response)), {
-              correlationId: correlationId,
-              contentType: 'application/json'
-            });
-          }
-        } catch (err) {
-          console.error('Error handling message', err);
-          if (replyTo) {
-            channel.sendToQueue(replyTo, Buffer.from(JSON.stringify({ success: false, error: err.message })), {
-              correlationId: correlationId,
-              contentType: 'application/json'
-            });
-          }
-        }
-
-        channel.ack(msg);
-      }
-    });
-
-  } catch (error) {
-    console.error('[RabbitMQ] Failed to connect', error);
-    setTimeout(connectRabbitMQ, RECONNECT_INTERVAL);
-  }
-}
+app.use((err, req, res, next) => {
+  console.error('[Error]', err.message);
+  res.status(500).json({ success: false, error: err.message });
+});
 
 async function run() {
-  console.log('--- Starting Media Server ---');
-  // 1. Mediasoup 초기화
-  await mediasoupManager.init();
-
-  // 2. RabbitMQ 연결 (Auto-Reconnect)
-  connectRabbitMQ();
+  await initWorker();
+  app.listen(config.server.port, () => {
+    console.log(`[signal-media] listening on port ${config.server.port}`);
+  });
 }
 
 run();

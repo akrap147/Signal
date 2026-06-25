@@ -27,7 +27,7 @@ function App() {
     }
   }, [accessToken, user?.id]);
 
-  // 브라우저 창 닫힐 때 WebSocket 명시적으로 닫아 서버가 즉시 감지하도록
+  // 브라우저 창 닫힐 때 정리
   React.useEffect(() => {
     const handleUnload = () => {
       useVoiceStore.getState().leaveVoiceChannel();

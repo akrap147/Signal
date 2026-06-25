@@ -9,8 +9,8 @@ import CreateChannelModal from '../modals/CreateChannelModal';
 import { friendApi } from '../../api/friend';
 import { dmApi } from '../../api/channel';
 import { serverApi } from '../../api/server';
-import useVoiceStore from '../../stores/useVoiceStore';
 import useChatStore from '../../stores/useChatStore';
+import useVoiceStore from '../../stores/useVoiceStore';
 import VoiceStatusBar from '../voice/VoiceStatusBar';
 
 const ServerSidebar = () => {
@@ -120,18 +120,19 @@ const ServerSidebar = () => {
                   return (
                     <div
                       key={ch.id}
-                      className={clsx('sidebar-item', { active: isVoice ? isVoiceActive : activeChannelId === ch.id })}
+                      className={clsx('sidebar-item', {
+                        active: isVoice ? isVoiceActive : activeChannelId === ch.id,
+                      })}
                       onClick={() => {
-                        if (isVoice) {
-                          joinVoiceChannel(ch.id);
-                        } else {
-                          navigate(`/channels/${activeServerId}/${ch.id}`);
-                        }
+                        navigate(`/channels/${activeServerId}/${ch.id}`);
+                        if (isVoice) joinVoiceChannel(ch.id);
                       }}
                       style={isVoiceActive ? { color: '#3ba55d' } : {}}
                     >
-                      <span style={{ opacity: 0.5 }}>{isVoice ? '🔊' : '#'}</span>{' '}{ch.name}
-                      {isVoiceActive && <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#3ba55d' }}>●</span>}
+                      <span style={{ opacity: 0.5 }}>{isVoice ? '🎨' : '#'}</span>{' '}{ch.name}
+                      {isVoiceActive && (
+                        <span style={{ marginLeft: 'auto', fontSize: '0.65rem', color: '#3ba55d' }}>●</span>
+                      )}
                     </div>
                   );
                 })}

@@ -12,8 +12,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "amqplib": "^0.10.9",
     "dotenv": "^17.2.3",
+    "express": "^4.21.2",
     "mediasoup": "^3.19.14",
     "uuid": "^13.0.0"
   },

@@ -1,335 +1,285 @@
 import { create } from 'zustand';
 import { Device } from 'mediasoup-client';
+import useChatStore from './useChatStore';
 import useAuthStore from './useAuthStore';
 
-const SIGNALING_URL = import.meta.env.VITE_SIGNALING_URL;
-
+// 컴포넌트 외부 mediasoup 객체 (Zustand 상태 아님)
 export const ms = {
-  ws: null,
   device: null,
   sendTransport: null,
   recvTransport: null,
   producer: null,
-  videoProducer: null,
-  videoStream: null,
+  inputStream: null,
+  outputTracks: [],
   pendingProducers: [],
   isCreatingRecvTransport: false,
   pendingProducerCallback: null,
-  pendingVideoProducerCallback: null,
-  inputStream: null,
-  outputTracks: [],
-  producerToUser: {},  // { [producerId]: userId }
+  producerToUser: {},
+  subscriptions: [],
 };
 
-const useVoiceStore = create((set, get) => ({
-  activeVoiceChannelId: null,
-  isMuted: false,
-  isConnected: false,
-  isVideoEnabled: false,
-  participants: {},   // { [userId]: { username } }
-  remoteVideos: {},   // { [userId]: MediaStreamTrack | null }
+// STOMP로 백엔드에 액션 전송
+function sendAction(client, action, roomId, userId, payload = {}) {
+  client.publish({
+    destination: '/pub/voice',
+    body: JSON.stringify({ action, roomId, userId, payload }),
+  });
+}
 
-  joinVoiceChannel: async (channelId) => {
-    if (get().activeVoiceChannelId) {
-      get().leaveVoiceChannel();
+// ──────────────── 시그널링 핸들러 (개인 토픽) ────────────────
+
+async function handlePersonalMessage(action, data, channelId, userId) {
+  const client = useChatStore.getState().client;
+
+  switch (action) {
+    case 'joinRoom': {
+      // data = { rtpCapabilities } 또는 rtpCapabilities 직접
+      const rtpCapabilities = data.rtpCapabilities ?? data;
+      const device = new Device();
+      await device.load({ routerRtpCapabilities: rtpCapabilities });
+      ms.device = device;
+      useVoiceStore.setState({ isConnected: true });
+      sendAction(client, 'createTransport', channelId, userId);
+      break;
     }
 
-    sessionStorage.setItem('voiceChannelId', String(channelId));
-    set({ activeVoiceChannelId: channelId, isConnected: false });
-
-    const user = useAuthStore.getState().user;
-    const userId = String(user?.id ?? '');
-    const username = user?.username ?? '';
-
-    const ws = new WebSocket(SIGNALING_URL);
-    ms.ws = ws;
-
-    ws.onopen = () => {
-      ws.send(JSON.stringify({
-        type: 'join',
-        roomId: String(channelId),
-        data: { userId, username },
-      }));
-    };
-
-    ws.onmessage = async (event) => {
-      const msg = JSON.parse(event.data);
-      await handleMessage(msg, channelId, set, get);
-    };
-
-    ws.onclose = () => {
-      set({ isConnected: false });
-    };
-  },
-
-  leaveVoiceChannel: () => {
-    sessionStorage.removeItem('voiceChannelId');
-    if (ms.producer)      { ms.producer.close();      ms.producer = null; }
-    if (ms.videoProducer) { ms.videoProducer.close();  ms.videoProducer = null; }
-    if (ms.videoStream)   { ms.videoStream.getTracks().forEach(t => t.stop()); ms.videoStream = null; }
-    if (ms.sendTransport) { ms.sendTransport.close();  ms.sendTransport = null; }
-    if (ms.recvTransport) { ms.recvTransport.close();  ms.recvTransport = null; }
-    if (ms.ws)            { ms.ws.close();             ms.ws = null; }
-    ms.device = null;
-    ms.pendingProducers = [];
-    ms.isCreatingRecvTransport = false;
-    ms.pendingProducerCallback = null;
-    ms.pendingVideoProducerCallback = null;
-    ms.inputStream = null;
-    ms.outputTracks = [];
-    ms.producerToUser = {};
-
-    document.querySelectorAll('audio[id^="voice-audio-"]').forEach(el => el.remove());
-
-    set({
-      activeVoiceChannelId: null,
-      isMuted: false,
-      isConnected: false,
-      isVideoEnabled: false,
-      participants: {},
-      remoteVideos: {},
-    });
-  },
-
-  toggleMute: () => {
-    if (!ms.producer) return;
-    const next = !get().isMuted;
-    ms.producer.track.enabled = !next;
-    set({ isMuted: next });
-  },
-
-  toggleVideo: async () => {
-    if (!ms.sendTransport || !ms.device) return;
-
-    if (get().isVideoEnabled) {
-      if (ms.videoProducer) {
-        const producerId = ms.videoProducer.id;
-        ms.videoProducer.close();
-        ms.videoProducer = null;
-        const roomId = String(get().activeVoiceChannelId);
-        ms.ws?.send(JSON.stringify({ type: 'closeProducer', roomId, data: { producerId } }));
+    case 'createTransport': {
+      if (!ms.sendTransport) {
+        await initSendTransport(data, channelId, userId);
+      } else if (ms.isCreatingRecvTransport) {
+        await initRecvTransport(data, channelId, userId);
       }
-      if (ms.videoStream) { ms.videoStream.getTracks().forEach(t => t.stop()); ms.videoStream = null; }
-      set({ isVideoEnabled: false });
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        ms.videoStream = stream;
-        ms.videoProducer = await ms.sendTransport.produce({ track: stream.getVideoTracks()[0] });
-        set({ isVideoEnabled: true });
-      } catch (e) {
-        console.error('[Voice] Camera access failed:', e);
-      }
+      break;
     }
-  },
-}));
 
-async function handleMessage(msg, channelId, set, get) {
-  const roomId = String(channelId);
-
-  if (msg.type === 'userJoined') {
-    // sessionId is always present; userId/username are display extras
-    const key = msg.sessionId ?? msg.userId;
-    if (!key) return;
-    const label = msg.username || msg.userId || '상대방';
-    set(state => ({
-      participants: { ...state.participants, [key]: { username: label } },
-    }));
-    return;
-  }
-
-  if (msg.type === 'userLeft') {
-    const key = msg.sessionId ?? msg.userId;
-    if (!key) return;
-    set(state => {
-      const { [key]: _p, ...restParticipants } = state.participants;
-      const { [key]: _v, ...restVideos } = state.remoteVideos;
-      return { participants: restParticipants, remoteVideos: restVideos };
-    });
-    return;
-  }
-
-  if (msg.type === 'newProducer') {
-    // Use sessionId as the stable participant key; userId/username are for display
-    const key = msg.sessionId ?? msg.userId ?? msg.producerId;
-    const label = msg.username || msg.userId || '상대방';
-    // Ensure participant tile exists (upsert, don't overwrite existing)
-    set(state => ({
-      participants: state.participants[key]
-        ? state.participants
-        : { ...state.participants, [key]: { username: label } },
-    }));
-    ms.producerToUser[msg.producerId] = key;
-    consumeProducer(msg.producerId, roomId);
-    return;
-  }
-
-  if (msg.type === 'producerClosed') {
-    const key = ms.producerToUser[msg.producerId];
-    delete ms.producerToUser[msg.producerId];
-    if (key) {
-      // Keep participant tile, just clear the video track
-      set(state => ({ remoteVideos: { ...state.remoteVideos, [key]: null } }));
-    }
-    return;
-  }
-
-  if (msg.rtpCapabilities) {
-    const device = new Device();
-    await device.load({ routerRtpCapabilities: msg.rtpCapabilities });
-    ms.device = device;
-    set({ isConnected: true });
-
-    ms.ws.send(JSON.stringify({
-      type: 'createTransport',
-      roomId,
-      data: { roomId, direction: 'send' },
-    }));
-    return;
-  }
-
-  if (msg.id && msg.iceParameters) {
-    if (!ms.sendTransport && !ms.isCreatingRecvTransport) {
-      await initSendTransport(msg, roomId, set);
-    } else if (ms.isCreatingRecvTransport) {
-      await initRecvTransport(msg, roomId);
-    }
-    return;
-  }
-
-  // produce response
-  if (msg.id && !msg.iceParameters && !msg.rtpCapabilities && !msg.producerId) {
-    if (ms.pendingProducerCallback) {
-      ms.pendingProducerCallback({ id: msg.id });
+    case 'produced': {
+      ms.pendingProducerCallback?.({ id: data.id });
       ms.pendingProducerCallback = null;
-    } else if (ms.pendingVideoProducerCallback) {
-      ms.pendingVideoProducerCallback({ id: msg.id });
-      ms.pendingVideoProducerCallback = null;
+      break;
     }
-    return;
-  }
 
-  if (msg.id && msg.producerId && msg.kind && msg.rtpParameters) {
-    await finalizeConsume(msg, roomId, set);
+    case 'consumed': {
+      await finalizeConsume(data, channelId, userId);
+      break;
+    }
+
+    case 'error':
+      console.error('[Voice] 서버 에러');
+      break;
+
+    default:
+      break;
   }
 }
 
-async function initSendTransport(serverData, roomId, set) {
-  const sendTransport = ms.device.createSendTransport(serverData);
-  ms.sendTransport = sendTransport;
+// ──────────────── 시그널링 핸들러 (방 전체 토픽) ────────────────
 
-  sendTransport.on('connect', ({ dtlsParameters }, callback) => {
-    ms.ws.send(JSON.stringify({
-      type: 'connectTransport',
-      roomId,
-      data: { roomId, transportId: serverData.id, dtlsParameters },
+function handleRoomMessage(event, channelId, userId) {
+  if (event.action === 'newProducer') {
+    const { producerId, userId: remoteUserId } = event;
+    if (String(remoteUserId) === String(userId)) return; // 자신 제외
+    ms.producerToUser[producerId] = remoteUserId;
+    useVoiceStore.setState((state) => ({
+      participants: { ...state.participants, [remoteUserId]: true },
     }));
+    consumeProducer(producerId, channelId, userId);
+  }
+
+  if (event.action === 'userLeft') {
+    const { userId: leftId } = event;
+    useVoiceStore.setState((state) => {
+      const { [leftId]: _, ...rest } = state.participants;
+      return { participants: rest };
+    });
+  }
+}
+
+// ──────────────── 전송 Transport 초기화 ────────────────
+
+async function initSendTransport(params, channelId, userId) {
+  const client = useChatStore.getState().client;
+  const transport = ms.device.createSendTransport(params);
+  ms.sendTransport = transport;
+
+  transport.on('connect', ({ dtlsParameters }, callback) => {
+    sendAction(client, 'connect', channelId, userId, {
+      roomId: channelId,
+      transportId: params.id,
+      dtlsParameters,
+    });
     callback();
   });
 
-  sendTransport.on('produce', ({ kind, rtpParameters }, callback) => {
-    ms.ws.send(JSON.stringify({
-      type: 'produce',
-      roomId,
-      data: { roomId, transportId: serverData.id, kind, rtpParameters },
-    }));
-    if (kind === 'audio') {
-      ms.pendingProducerCallback = callback;
-    } else {
-      ms.pendingVideoProducerCallback = callback;
-    }
+  transport.on('produce', ({ kind, rtpParameters }, callback) => {
+    ms.pendingProducerCallback = callback;
+    sendAction(client, 'produce', channelId, userId, {
+      roomId: channelId,
+      transportId: params.id,
+      kind,
+      rtpParameters,
+    });
   });
 
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     ms.inputStream = stream;
-    ms.producer = await sendTransport.produce({ track: stream.getAudioTracks()[0] });
+    ms.producer = await transport.produce({ track: stream.getAudioTracks()[0] });
   } catch (e) {
-    console.error('[Voice] Mic access failed:', e);
+    console.error('[Voice] 마이크 접근 실패:', e);
   }
 }
 
-function consumeProducer(remoteProducerId, roomId) {
+// ──────────────── 수신 Transport 초기화 ────────────────
+
+async function initRecvTransport(params, channelId, userId) {
+  const client = useChatStore.getState().client;
+  const transport = ms.device.createRecvTransport(params);
+  ms.recvTransport = transport;
+  ms.isCreatingRecvTransport = false;
+
+  transport.on('connect', ({ dtlsParameters }, callback) => {
+    sendAction(client, 'connect', channelId, userId, {
+      roomId: channelId,
+      transportId: params.id,
+      dtlsParameters,
+    });
+    callback();
+  });
+
+  // 대기 중이던 producer들 소비
+  const pending = ms.pendingProducers.splice(0);
+  for (const pid of pending) {
+    requestConsume(pid, channelId, userId);
+  }
+}
+
+// ──────────────── Producer 소비 ────────────────
+
+function consumeProducer(producerId, channelId, userId) {
+  const client = useChatStore.getState().client;
   if (ms.recvTransport) {
-    requestConsume(remoteProducerId, roomId);
+    requestConsume(producerId, channelId, userId);
   } else {
-    ms.pendingProducers.push(remoteProducerId);
+    ms.pendingProducers.push(producerId);
     if (!ms.isCreatingRecvTransport) {
       ms.isCreatingRecvTransport = true;
-      ms.ws.send(JSON.stringify({
-        type: 'createTransport',
-        roomId,
-        data: { roomId, direction: 'recv' },
-      }));
+      sendAction(client, 'createTransport', channelId, userId);
     }
   }
 }
 
-async function initRecvTransport(serverData, roomId) {
-  const recvTransport = ms.device.createRecvTransport(serverData);
-  ms.recvTransport = recvTransport;
-  ms.isCreatingRecvTransport = false;
-
-  recvTransport.on('connect', ({ dtlsParameters }, callback) => {
-    ms.ws.send(JSON.stringify({
-      type: 'connectTransport',
-      roomId,
-      data: { roomId, transportId: serverData.id, dtlsParameters },
-    }));
-    callback();
+function requestConsume(producerId, channelId, userId) {
+  const client = useChatStore.getState().client;
+  sendAction(client, 'consume', channelId, userId, {
+    roomId: channelId,
+    transportId: ms.recvTransport.id,
+    producerId,
+    rtpCapabilities: ms.device.rtpCapabilities,
   });
-
-  const pending = ms.pendingProducers.splice(0);
-  for (const pid of pending) {
-    requestConsume(pid, roomId);
-  }
 }
 
-function requestConsume(remoteProducerId, roomId) {
-  ms.ws.send(JSON.stringify({
-    type: 'consume',
-    roomId,
-    data: {
-      roomId,
-      transportId: ms.recvTransport.id,
-      producerId: remoteProducerId,
-      rtpCapabilities: ms.device.rtpCapabilities,
-    },
-  }));
-}
-
-async function finalizeConsume(data, roomId, set) {
+async function finalizeConsume(data, channelId, userId) {
+  const client = useChatStore.getState().client;
   const { id, producerId, kind, rtpParameters } = data;
   const consumer = await ms.recvTransport.consume({ id, producerId, kind, rtpParameters });
 
-  ms.ws.send(JSON.stringify({
-    type: 'resume',
-    roomId,
-    data: { roomId, consumerId: id },
-  }));
+  sendAction(client, 'resume', channelId, userId, {
+    roomId: channelId,
+    consumerId: id,
+  });
 
-  if (kind === 'video') {
-    const key = ms.producerToUser[producerId] ?? producerId;
-    set(state => ({ remoteVideos: { ...state.remoteVideos, [key]: consumer.track } }));
-
-    consumer.on('transportclose', () => {
-      set(state => { const { [key]: _, ...rest } = state.remoteVideos; return { remoteVideos: rest }; });
-    });
-    consumer.on('producerclose', () => {
-      consumer.close();
-      set(state => ({ remoteVideos: { ...state.remoteVideos, [key]: null } }));
-    });
-  } else {
-    ms.outputTracks.push(consumer.track);
-
-    const audio = document.createElement('audio');
-    audio.id = `voice-audio-${id}`;
-    audio.autoplay = true;
-    audio.srcObject = new MediaStream([consumer.track]);
-    audio.style.display = 'none';
-    document.body.appendChild(audio);
-    audio.play().catch(() => {});
-  }
+  ms.outputTracks.push(consumer.track);
+  const audio = document.createElement('audio');
+  audio.id = `voice-audio-${id}`;
+  audio.autoplay = true;
+  audio.srcObject = new MediaStream([consumer.track]);
+  audio.style.display = 'none';
+  document.body.appendChild(audio);
+  audio.play().catch(() => {});
 }
+
+// ──────────────── 정리 ────────────────
+
+function cleanup() {
+  ms.producer?.close();      ms.producer = null;
+  ms.sendTransport?.close(); ms.sendTransport = null;
+  ms.recvTransport?.close(); ms.recvTransport = null;
+  ms.device = null;
+  ms.inputStream?.getTracks().forEach((t) => t.stop()); ms.inputStream = null;
+  ms.outputTracks = [];
+  ms.pendingProducers = [];
+  ms.isCreatingRecvTransport = false;
+  ms.pendingProducerCallback = null;
+  ms.producerToUser = {};
+  ms.subscriptions.forEach((s) => s?.unsubscribe()); ms.subscriptions = [];
+  document.querySelectorAll('audio[id^="voice-audio-"]').forEach((el) => el.remove());
+}
+
+// ──────────────── Zustand Store ────────────────
+
+const useVoiceStore = create((set, get) => ({
+  activeVoiceChannelId: null,
+  isMuted: false,
+  isConnected: false,
+  participants: {}, // { [userId]: true }
+
+  joinVoiceChannel: async (channelId) => {
+    if (get().activeVoiceChannelId) get().leaveVoiceChannel();
+
+    const client = useChatStore.getState().client;
+    if (!client?.active) {
+      console.error('[Voice] STOMP 미연결');
+      return;
+    }
+
+    const user = useAuthStore.getState().user;
+    const userId = user?.id;
+
+    set({ activeVoiceChannelId: channelId, isConnected: false, participants: {} });
+    sessionStorage.setItem('voiceChannelId', String(channelId));
+
+    const personalSub = client.subscribe(
+      `/topic/voice.${channelId}.${userId}`,
+      async (msg) => {
+        const { action, data } = JSON.parse(msg.body);
+        await handlePersonalMessage(action, data, channelId, userId);
+      }
+    );
+
+    const roomSub = client.subscribe(
+      `/topic/voice.${channelId}`,
+      (msg) => {
+        const event = JSON.parse(msg.body);
+        handleRoomMessage(event, channelId, userId);
+      }
+    );
+
+    ms.subscriptions = [personalSub, roomSub];
+    sendAction(client, 'joinRoom', channelId, userId);
+  },
+
+  leaveVoiceChannel: () => {
+    const { activeVoiceChannelId } = get();
+    const client = useChatStore.getState().client;
+    const userId = useAuthStore.getState().user?.id;
+
+    if (activeVoiceChannelId && client?.active) {
+      sendAction(client, 'leave', activeVoiceChannelId, userId, {
+        roomId: activeVoiceChannelId,
+      });
+    }
+
+    cleanup();
+    sessionStorage.removeItem('voiceChannelId');
+    set({ activeVoiceChannelId: null, isMuted: false, isConnected: false, participants: {} });
+  },
+
+  toggleMute: () => {
+    if (!ms.producer?.track) return;
+    const next = !get().isMuted;
+    ms.producer.track.enabled = !next;
+    set({ isMuted: next });
+  },
+}));
 
 export default useVoiceStore;

@@ -63,7 +63,6 @@ CREATE TABLE IF NOT EXISTS chat_message (
     room_id     BIGINT       NOT NULL,
     sender_id   BIGINT       NOT NULL,
     sender_name VARCHAR(50)  NOT NULL,
-    seq_id      BIGINT       NOT NULL,
     content     TEXT,
     created_at  TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at  TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -71,7 +70,6 @@ CREATE TABLE IF NOT EXISTS chat_message (
 
 CREATE INDEX IF NOT EXISTS idx_chat_message_room_id   ON chat_message (room_id);
 CREATE INDEX IF NOT EXISTS idx_chat_message_created_at ON chat_message (created_at);
-CREATE INDEX IF NOT EXISTS idx_chat_message_room_seq  ON chat_message (room_id, seq_id);
 
 -- DM Rooms Table
 CREATE TABLE IF NOT EXISTS dm_rooms (

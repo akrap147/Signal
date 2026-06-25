@@ -14,13 +14,12 @@ public class MessageService {
     private final ChatMessageJpaRepository chatMessageJpaRepository;
 
     public List<ChatMessageResponse> getChannelMessages(Long channelId) {
-        return chatMessageJpaRepository.findAllByRoomIdOrderBySeqIdAsc(channelId)
+        return chatMessageJpaRepository.findAllByRoomIdOrderByIdAsc(channelId)
                 .stream()
                 .map(message -> ChatMessageResponse.builder()
                         .id(message.getId())
                         .roomId(message.getRoomId())
                         .senderId(message.getSenderId())
-                        .seqId(message.getSeqId())
                         .content(message.getContent())
                         .senderName(message.getSenderName())
                         .createdAt(message.getCreatedAt())

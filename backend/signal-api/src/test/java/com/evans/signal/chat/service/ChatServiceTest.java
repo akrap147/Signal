@@ -30,19 +30,17 @@ class ChatServiceTest {
         // given
         Long channelId = 1L;
         List<ChatMessage> messages = List.of(
-                ChatMessage.builder().roomId(channelId).senderId(10L).senderName("Alice").content("안녕하세요").seqId(1L).build(),
-                ChatMessage.builder().roomId(channelId).senderId(11L).senderName("Bob").content("반갑습니다").seqId(2L).build()
+                ChatMessage.builder().roomId(channelId).senderId(10L).senderName("Alice").content("안녕하세요").build(),
+                ChatMessage.builder().roomId(channelId).senderId(11L).senderName("Bob").content("반갑습니다").build()
         );
-        given(chatMessageJpaRepository.findAllByRoomIdOrderBySeqIdAsc(channelId)).willReturn(messages);
+        given(chatMessageJpaRepository.findAllByRoomIdOrderByIdAsc(channelId)).willReturn(messages);
 
         // when
         List<ChatMessageResponse> result = messageService.getChannelMessages(channelId);
 
         // then
         assertThat(result).hasSize(2);
-        assertThat(result.get(0).getSeqId()).isEqualTo(1L);
         assertThat(result.get(0).getContent()).isEqualTo("안녕하세요");
-        assertThat(result.get(1).getSeqId()).isEqualTo(2L);
         assertThat(result.get(1).getContent()).isEqualTo("반갑습니다");
     }
 
@@ -51,7 +49,7 @@ class ChatServiceTest {
     void getChannelMessages_empty() {
         // given
         Long channelId = 1L;
-        given(chatMessageJpaRepository.findAllByRoomIdOrderBySeqIdAsc(channelId)).willReturn(List.of());
+        given(chatMessageJpaRepository.findAllByRoomIdOrderByIdAsc(channelId)).willReturn(List.of());
 
         // when
         List<ChatMessageResponse> result = messageService.getChannelMessages(channelId);

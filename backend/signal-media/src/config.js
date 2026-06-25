@@ -1,11 +1,8 @@
 import os from 'os';
 
 export const config = {
-  // RabbitMQ
-  rabbitmq: {
-    url: process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672',
-    exchange: 'signal.signaling.exchange',
-    requestQueue: 'signal.media.request.queue',
+  server: {
+    port: process.env.MEDIA_SERVER_PORT || 3000,
   },
   // Mediasoup
   mediasoup: {
